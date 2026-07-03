@@ -17,7 +17,9 @@ COPY CONSOLIDADO_CON_FORD.csv ./
 
 ENV VA_DATA_DIR=/data
 ENV VA_FRONTEND_DIR=/srv
-VOLUME ["/data"]
+# No VOLUME instruction — Railway rejects it (dockerfile invalid: docker VOLUME is not
+# supported, use Railway Volumes). /data still works as a plain directory; attach a
+# Railway Volume at /data in the dashboard if you want it to persist across deploys.
 
 EXPOSE 8000
 WORKDIR /srv/backend
