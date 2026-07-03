@@ -10,10 +10,16 @@ COPY backend/app backend/app
 # Static dashboard the backend serves at "/" (see app/main.py:dashboard_index).
 COPY index.html support.js ./
 
+# Static reference dataset (Ford_Real ground truth) — baked into the image since it's
+# not runtime-mutated. Lands at /srv/CONSOLIDADO_CON_FORD.csv, which is where
+# config.CONSOLIDADO_FORD_PATH looks by default (repo-root-relative == /srv here).
+COPY CONSOLIDADO_CON_FORD.csv ./
+
 ENV VA_DATA_DIR=/data
 ENV VA_FRONTEND_DIR=/srv
 VOLUME ["/data"]
 
 EXPOSE 8000
 WORKDIR /srv/backend
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# $PORT is injected by PaaS platforms (Railway, etc); falls back to 8000 locally.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

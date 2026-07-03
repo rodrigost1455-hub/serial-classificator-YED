@@ -71,16 +71,13 @@ backend/dashboard — run them any time the dataset is refreshed.
 
 ## Deploying with Docker
 
-Build from the **repo root** (the image needs both `backend/` and the root-level
-`index.html`/`support.js` in its build context):
+Build from the **repo root** (the image needs `backend/`, the root-level
+`index.html`/`support.js`, and `CONSOLIDADO_CON_FORD.csv` in its build context —
+the CSV is baked into the image since it's static reference data, not runtime-mutated):
 
 ```bash
 docker build -f backend/Dockerfile -t virtual-audit-backend .
-docker run -p 8000:8000 \
-  -v "$(pwd)/CONSOLIDADO_CON_FORD.csv:/data/CONSOLIDADO_CON_FORD.csv:ro" \
-  -e VA_CONSOLIDADO_FORD_PATH=/data/CONSOLIDADO_CON_FORD.csv \
-  -e VA_API_KEY=change-me \
-  virtual-audit-backend
+docker run -p 8000:8000 -e VA_API_KEY=change-me virtual-audit-backend
 ```
 
 `VA_API_KEY` gates the mutating routes (`POST /api/ingest`, `POST /api/crossref`) —
@@ -89,5 +86,27 @@ localhost. Read-only routes (the CSV/summary/units endpoints, the dashboard itse
 stay open since the browser dashboard has no way to attach the header. See
 `backend/app/config.py` for the rest of the env-var surface (`VA_CORS_ORIGINS`,
 `VA_DATA_DIR`, thresholds, etc).
+
+To refresh the dataset baked into the image later, replace `CONSOLIDADO_CON_FORD.csv`
+in the repo and rebuild — or override at runtime with a mounted file plus
+`-e VA_CONSOLIDADO_FORD_PATH=/path/inside/container`.
+
+## Deploying on Railway
+
+The repo includes `railway.json`, which points Railway at `backend/Dockerfile` with
+the repo root as build context (Railway's default). To deploy:
+
+1. Create a new Railway project from this GitHub repo.
+2. Railway auto-detects `railway.json` and builds the Dockerfile — no other config
+   needed. It injects `$PORT`; the Dockerfile's `CMD` already binds to it.
+3. Set env vars in the Railway dashboard as needed: `VA_API_KEY` (recommended once
+   the service has a public URL), `VA_CORS_ORIGINS` (restrict from `*` once you know
+   the dashboard's origin).
+4. **Ingest data doesn't persist across deploys** unless you attach a [Railway
+   Volume](https://docs.railway.app/reference/volumes) mounted at `/data` (the
+   Dockerfile already sets `VA_DATA_DIR=/data`). Without one, `POST /api/ingest`
+   still works within a running instance, but a redeploy resets it — the
+   `/api/consolidado-ford.csv` dataset (baked into the image) is unaffected either way.
+5. Health check: `GET /api/health` (already wired into `railway.json`).
 
 CI (`.github/workflows/backend-tests.yml`) runs `pytest` in `backend/` on every push/PR.

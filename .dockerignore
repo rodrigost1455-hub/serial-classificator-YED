@@ -10,6 +10,7 @@ backend/data/
 ml_output/
 zonas_output/
 uploads/
-CONSOLIDADO_CON_FORD.csv
+# CONSOLIDADO_CON_FORD.csv is intentionally NOT excluded — the Dockerfile bakes it
+# into the image (see backend/Dockerfile).
 CONSOLIDADO_CON_FORD.zip
 .thumbnail

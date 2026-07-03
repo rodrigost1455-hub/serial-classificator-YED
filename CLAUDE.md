@@ -30,6 +30,9 @@ The repo has three pieces, tied together by the backend:
    backend/dashboard; see `requirements-ml.txt`.
 
 See the root [`README.md`](README.md) for the two-dataset distinction, Docker build, and CI.
+Deployed via Railway (`railway.json` at repo root points it at `backend/Dockerfile`);
+`CONSOLIDADO_CON_FORD.csv` is baked into the image at build time since it's static
+reference data — see `backend/Dockerfile`.
 
 ## Backend (`backend/`)
 
