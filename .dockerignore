@@ -1,0 +1,15 @@
+.git/
+.venv/
+.venv-ml/
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/.venv/
+backend/.pytest_cache/
+backend/data/
+ml_output/
+zonas_output/
+uploads/
+CONSOLIDADO_CON_FORD.csv
+CONSOLIDADO_CON_FORD.zip
+.thumbnail

@@ -1,0 +1,18 @@
+# Dependencies for the root-level analysis scripts (pipeline_ford_ml.py,
+# clasificar_zonas.py). Separate from backend/requirements.txt, which is the
+# FastAPI service's own (much smaller) dependency set.
+#
+#   python -m venv .venv-ml
+#   .venv-ml/Scripts/activate        # Windows; source .venv-ml/bin/activate on *nix
+#   pip install -r requirements-ml.txt
+#
+#   python pipeline_ford_ml.py       # writes ml_output/
+#   python clasificar_zonas.py       # writes zonas_output/
+numpy>=1.26
+pandas>=2.2
+matplotlib>=3.8
+seaborn>=0.13
+scikit-learn>=1.4
+xgboost>=2.0
+lightgbm>=4.3
+shap>=0.45

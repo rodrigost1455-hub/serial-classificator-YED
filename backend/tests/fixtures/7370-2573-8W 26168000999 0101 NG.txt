@@ -1,0 +1,16 @@
+BEC Current Sensor - End Of Line Test Log
+Part: 7370-2573-8W
+SerialNumber: 26168000999
+RESULTADO: NG
+
+CONSUMPTION CURRENT: 20,900 mA
+HIGH RANGE OUTPUT VOLTAGE: 2,505 V
+MedirVoltajeDMM ; ch1 ; 3 ; 18,0 ; stable
+
+POLARITY
+  VOLTAJE C3-C2 : 2,617
+  VOLTAJE C3-C4 : 2,900
+
+LOW RANGE OUTPUT VOLTAGE: 2,504 V
+MedirVoltajeDMM ; ch2 ; 3 ; 20,0 ; stable
+END

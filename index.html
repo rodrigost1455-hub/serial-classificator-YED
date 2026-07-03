@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:#000;color:#f5f5f7;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  ::selection{background:rgba(10,132,255,.35)}
+  .mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+  .tnum{font-variant-numeric:tabular-nums}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#2a2a2c;border-radius:6px;border:2px solid #000}
+  ::-webkit-scrollbar-thumb:hover{background:#3a3a3c}
+  @keyframes growBar{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes ringPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,69,58,0)}50%{box-shadow:0 0 0 5px rgba(255,69,58,.10)}}
+  @keyframes dotIn{from{opacity:0;transform:scale(0)}to{opacity:.7;transform:scale(1)}}
+  input::placeholder{color:#48484a}
+  .trow:hover{background:#161616 !important}
+</style>
+</helmet>
+<div style="height:100vh;width:100vw;display:flex;flex-direction:column;background:#000">
+
+  <!-- TOP BAR -->
+  <div onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 18px;background:rgba(20,20,20,.72);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid {{ topBorder }};position:relative;z-index:20">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:9px;height:9px;border-radius:2px;background:#0a84ff;box-shadow:0 0 10px #0a84ff"></div>
+      <span style="font-weight:700;font-size:13px;letter-spacing:.04em">YAZAKI YED</span>
+      <span style="color:#48484a">·</span>
+      <span style="font-size:13px;color:#86868b;font-weight:500">Sorteo Ford · BEC Current Sensor</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:8px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.22)">
+      <span style="font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#0a84ff">Corte Littelfuse</span>
+      <span class="mono" style="font-size:12px;color:#f5f5f7">Marzo 2026</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:8px;background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.22)">
+      <span style="font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#ff453a">Ford Real · FAIL</span>
+      <span class="mono" style="font-size:12px;color:#f5f5f7">{{ kpiFordFail }}</span>
+    </div>
+    <div style="flex:1"></div>
+    <div onClick="{{ onPick }}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;background:{{ uploadBg }};border:1px dashed {{ uploadBorder }};cursor:pointer;transition:all .2s">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86868b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <span style="font-size:12px;color:#86868b">{{ uploadLabel }}</span>
+      <input type="file" multiple accept=".csv" ref="{{ fileRef }}" onChange="{{ onFiles }}" style="display:none"/>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;width:210px;padding:6px 11px;border-radius:9px;background:#1c1c1e;border:1px solid rgba(255,255,255,.06)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#48484a" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input value="{{ search }}" onInput="{{ onSearch }}" placeholder="Buscar serial…" class="mono" style="flex:1;background:none;border:none;outline:none;color:#f5f5f7;font-size:12px"/>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:13px;padding:16px 18px 12px">
+
+    <!-- KPI ROW -->
+    <div style="flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:13px">
+      <div style="background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:15px;padding:14px 16px;animation:fadeUp .5s both">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">Piezas Auditadas</div>
+        <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1">{{ kpiTotal }}</div>
+        <div style="font-size:11px;color:#48484a;margin-top:3px">registros EOL consolidados</div>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid rgba(255,69,58,.18);border-radius:15px;padding:14px 16px;animation:fadeUp .5s .05s both,ringPulse 3.2s 1s infinite">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🔴 Retirar · S ≤ 5.55</div>
+        <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1;color:#ff453a">{{ kpiRojo }}</div>
+        <div style="font-size:11px;color:#48484a;margin-top:3px">falla segura · sacar de Ford</div>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid rgba(255,159,10,.16);border-radius:15px;padding:14px 16px;animation:fadeUp .5s .1s both">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🟡 Riesgo · Sorteo</div>
+        <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1;color:#ff9f0a">{{ kpiAmarillo }}</div>
+        <div style="font-size:11px;color:#48484a;margin-top:3px">5.55 &lt; S ≤ 5.65 · sortear</div>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid rgba(48,209,88,.14);border-radius:15px;padding:14px 16px;animation:fadeUp .5s .15s both">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🟢 Liberar · S &gt; 5.65</div>
+        <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1;color:#30d158">{{ kpiVerde }}</div>
+        <div style="font-size:11px;color:#48484a;margin-top:3px">probablemente OK</div>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid rgba(10,132,255,.16);border-radius:15px;padding:14px 16px;animation:fadeUp .5s .2s both">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🔵 Post-Corrección</div>
+        <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1;color:#0a84ff">{{ kpiLimpio }}</div>
+        <div style="font-size:11px;color:#48484a;margin-top:3px">≥ Mar 2026 · producción limpia</div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div style="flex:none;display:grid;grid-template-columns:1.55fr 1fr;gap:13px">
+
+      <!-- HISTOGRAM -->
+      <div style="background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:15px 17px 10px;animation:fadeUp .5s .15s both">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+          <div>
+            <div style="font-size:15px;font-weight:600">Distribución de Sensibilidad</div>
+            <div style="font-size:11px;color:#86868b;margin-top:1px">S_High mV/A · agrupado 0.05 · coloreado por zona de sorteo</div>
+          </div>
+          <div style="display:flex;gap:13px;font-size:10px">
+            <span style="display:flex;align-items:center;gap:5px;color:#86868b"><span style="width:8px;height:8px;border-radius:2px;background:#ff453a"></span>Retirar</span>
+            <span style="display:flex;align-items:center;gap:5px;color:#86868b"><span style="width:8px;height:8px;border-radius:2px;background:#ff9f0a"></span>Riesgo</span>
+            <span style="display:flex;align-items:center;gap:5px;color:#86868b"><span style="width:8px;height:8px;border-radius:2px;background:#30d158"></span>Liberar</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 540 222" style="width:100%;height:202px;display:block">
+          <sc-for list="{{ histBars }}" as="bar" hint-placeholder-count="10">
+            <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.w }}" height="{{ bar.h }}" rx="3" fill="{{ bar.color }}" style="{{ bar.style }}"><title>{{ bar.tip }}</title></rect>
+          </sc-for>
+          <sc-for list="{{ histBars }}" as="bar" hint-placeholder-count="10">
+            <text x="{{ bar.cx }}" y="{{ bar.labelY }}" text-anchor="middle" fill="#86868b" font-size="9" font-family="JetBrains Mono,monospace">{{ bar.label }}</text>
+          </sc-for>
+          <line x1="{{ redX }}" x2="{{ redX }}" y1="22" y2="190" stroke="#ff453a" stroke-width="1.5" stroke-dasharray="5 4"></line>
+          <line x1="{{ yellowX }}" x2="{{ yellowX }}" y1="22" y2="190" stroke="#ff9f0a" stroke-width="1.5" stroke-dasharray="5 4"></line>
+          <line x1="34" x2="528" y1="190" y2="190" stroke="rgba(255,255,255,.12)" stroke-width="1"></line>
+          <g transform="translate({{ redX }},6)"><rect x="-22" y="0" width="44" height="16" rx="5" fill="rgba(255,69,58,.16)"></rect><text x="0" y="11" text-anchor="middle" fill="#ff453a" font-size="9" font-family="JetBrains Mono,monospace">5.55</text></g>
+          <g transform="translate({{ yellowX }},6)"><rect x="-22" y="0" width="44" height="16" rx="5" fill="rgba(255,159,10,.16)"></rect><text x="0" y="11" text-anchor="middle" fill="#ff9f0a" font-size="9" font-family="JetBrains Mono,monospace">5.65</text></g>
+          <sc-for list="{{ histTicks }}" as="t" hint-placeholder-count="6">
+            <text x="{{ t.x }}" y="204" text-anchor="middle" fill="#48484a" font-size="9" font-family="JetBrains Mono,monospace">{{ t.label }}</text>
+          </sc-for>
+          <text x="34" y="218" fill="#48484a" font-size="9">mV/A</text>
+        </svg>
+      </div>
+
+      <!-- RIGHT STACK -->
+      <div style="display:flex;flex-direction:column;gap:13px;min-width:0">
+        <!-- ZONE DISTRIBUTION -->
+        <div style="background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:14px 16px 12px;animation:fadeUp .5s .2s both">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px">
+            <div style="font-size:13px;font-weight:600">Distribución por Zona</div>
+            <span style="font-size:10px;color:#48484a">piezas · %</span>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ zoneRows }}" as="z" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid {{ z.sep }}">
+                <span style="width:112px;font-size:11px;color:#f5f5f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.name }}</span>
+                <div style="flex:1;height:8px;border-radius:5px;background:#161616;overflow:hidden">
+                  <div style="height:100%;width:{{ z.barW }};border-radius:5px;background:{{ z.fill }}"></div>
+                </div>
+                <span class="tnum" style="width:46px;text-align:right;font-size:11px;color:#86868b">{{ z.count }}</span>
+                <span class="tnum" style="min-width:40px;text-align:right;font-size:10px;font-weight:600;color:{{ z.color }}">{{ z.pct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- SCATTER -->
+        <div style="flex:1;background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 16px 8px;animation:fadeUp .5s .25s both;min-height:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div style="font-size:13px;font-weight:600">Proyección @ 220 A</div>
+            <span class="mono" style="font-size:10px;color:#ff453a">Límite Ford 3746 mV</span>
+          </div>
+          <svg viewBox="0 0 320 132" style="width:100%;height:118px;display:block;margin-top:2px">
+            <defs><linearGradient id="scfade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1c1e" stop-opacity="0.5"/><stop offset="1" stop-color="#1c1c1e" stop-opacity="0"/></linearGradient></defs>
+            <rect x="34" y="8" width="278" height="104" fill="url(#scfade)" rx="6"></rect>
+            <line x1="34" x2="312" y1="{{ fordY }}" y2="{{ fordY }}" stroke="#ff453a" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.85"></line>
+            <text x="36" y="{{ fordYLabel }}" fill="#ff453a" font-size="8" font-family="JetBrains Mono,monospace">3746</text>
+            <sc-for list="{{ scatterDots }}" as="d" hint-placeholder-count="40">
+              <circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="{{ d.r }}" fill="{{ d.color }}" style="{{ d.style }}"><title>{{ d.tip }}</title></circle>
+            </sc-for>
+            <text x="320" y="128" text-anchor="end" fill="#48484a" font-size="8" font-family="JetBrains Mono,monospace">S →</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER PILLS -->
+    <div style="flex:none;display:flex;align-items:center;gap:9px">
+      <sc-for list="{{ pills }}" as="pill" hint-placeholder-count="6">
+        <button onClick="{{ pill.onClick }}" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:10px;border:1px solid {{ pill.border }};background:{{ pill.bg }};color:{{ pill.fg }};font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;transition:all .2s">
+          {{ pill.label }}<span class="tnum" style="font-size:11px;opacity:.7">{{ pill.count }}</span>
+        </button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <span class="tnum" style="font-size:11px;color:#0a84ff;font-weight:600">{{ sorteoCount }}</span>
+      <span style="font-size:11px;color:#48484a">seriales para sorteo Ford</span>
+    </div>
+
+    <!-- TABLE -->
+    <div style="flex:1;min-height:0;background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:16px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:grid;grid-template-columns:44px 1.15fr 100px 82px 78px 62px 92px 76px 92px;align-items:center;gap:8px;padding:10px 18px;background:rgba(20,20,20,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#86868b">
+        <span onClick="{{ sortZona }}" style="cursor:pointer">Zona {{ caretZona }}</span>
+        <span onClick="{{ sortSerial }}" style="cursor:pointer">Serial {{ caretSerial }}</span>
+        <span onClick="{{ sortFecha }}" style="cursor:pointer">Fecha {{ caretFecha }}</span>
+        <span onClick="{{ sortS }}" style="cursor:pointer;text-align:right">S_High {{ caretS }}</span>
+        <span style="text-align:right">S_Low</span>
+        <span style="text-align:right">Ratio</span>
+        <span onClick="{{ sortProy }}" style="cursor:pointer;text-align:right">Proy 220A {{ caretProy }}</span>
+        <span style="text-align:center">Ford</span>
+        <span style="text-align:right">Acción</span>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="16">
+          <div class="trow" style="display:grid;grid-template-columns:44px 1.15fr 100px 82px 78px 62px 92px 76px 92px;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid rgba(255,255,255,.04);border-left:3px solid {{ r.edge }};transition:background .15s">
+            <span style="display:flex;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:{{ r.color }};box-shadow:0 0 7px {{ r.color }}"></span></span>
+            <span class="mono" style="font-size:12px;color:#f5f5f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sPre }}<span style="background:rgba(10,132,255,.32);border-radius:3px">{{ r.sHit }}</span>{{ r.sPost }}</span>
+            <span class="mono" style="font-size:11px;color:#c7c7cc">{{ r.fecha }}</span>
+            <span class="mono" style="font-size:12px;text-align:right;color:{{ r.color }}">{{ r.S }}</span>
+            <span class="mono" style="font-size:12px;text-align:right;color:#64d2ff">{{ r.Slow }}</span>
+            <span class="mono" style="font-size:12px;text-align:right;color:#86868b">{{ r.ratio }}</span>
+            <span class="mono" style="font-size:12px;text-align:right;color:{{ r.proyColor }}">{{ r.proy }}</span>
+            <span style="text-align:center"><span style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:6px;background:{{ r.fordBg }};color:{{ r.fordFg }}">{{ r.fordReal }}</span></span>
+            <span style="text-align:right;font-size:10px;font-weight:600;letter-spacing:.03em;color:{{ r.color }}">{{ r.accion }}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:40px;text-align:center;color:#48484a;font-size:13px">Ninguna pieza coincide con este filtro.</div>
+        </sc-if>
+      </div>
+      <!-- EXPORT BAR -->
+      <div style="flex:none;display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid rgba(255,255,255,.06);background:rgba(20,20,20,.5)">
+        <span style="font-size:11px;color:#48484a">{{ rowsShown }} de {{ rowsTotal }} mostradas</span>
+        <div style="flex:1"></div>
+        <button onClick="{{ onExportContainment }}" style="display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:10px;border:1px solid rgba(255,69,58,.3);background:rgba(255,69,58,.12);color:#ff6961;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff6961" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Containment (Rojo + Amarillo)
+        </button>
+        <button onClick="{{ onExportFull }}" style="display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:10px;border:1px solid rgba(10,132,255,.3);background:rgba(10,132,255,.12);color:#0a84ff;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Reporte Completo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="height:30px;flex:none;display:flex;align-items:center;gap:16px;padding:0 18px;border-top:1px solid rgba(255,255,255,.05);font-size:10px;color:#48484a">
+    <span class="mono">S = (V₂₀ₐ − V₀ₐ) ⁄ 20A</span>
+    <span>·</span>
+    <span class="mono">🔴 ≤ 5.55</span>
+    <span class="mono">🟡 5.55–5.65</span>
+    <span class="mono">🟢 &gt; 5.65</span>
+    <span class="mono">🔵 ≥ Mar 2026</span>
+    <span style="flex:1"></span>
+    <span onClick="{{ onClear }}" style="cursor:pointer;color:#86868b">Recargar dataset</span>
+    <span>·</span>
+    <span>Yazaki YED · Quality Engineering · Confidential</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { filter:'all', search:'', sortKey:'zona', sortDir:'asc', prog:0, dragOver:false, real:false, tick:0 };
+
+  FORD_MV=3746; RED=5.55; YEL=5.65; CORTE_MESKEY=202603; CAP=500;
+  COL={rojo:'#ff453a',rojoB:'#ff6961',amarillo:'#ff9f0a',verde:'#30d158',verdeB:'#5be07d',azul:'#0a84ff',teal:'#64d2ff'};
+  Z={ROJO:{c:'#ff453a',label:'🔴 Retirar',accion:'RETIRAR'},AMARILLO:{c:'#ff9f0a',label:'🟡 Riesgo',accion:'SORTEAR'},VERDE:{c:'#30d158',label:'🟢 Liberar',accion:'LIBERAR'},LIMPIO:{c:'#0a84ff',label:'🔵 Post-Corrección',accion:'LIMPIO'}};
+  DATASET='/api/consolidado-ford.csv';
+
+  constructor(props){ super(props); this.fileRef=React.createRef(); this.data=[]; }
+
+  componentDidMount(){
+    this.startAnim();
+    fetch(this.DATASET).then(r=>r.ok?r.text():Promise.reject()).then(t=>{
+      const d=this.parse(t);
+      if(d.length){ this.data=d; this.startAnim(); this.setState({tick:this.state.tick+1}); }
+    }).catch(()=>{ this.data=this.fallback(); this.setState({tick:this.state.tick+1}); });
+  }
+  startAnim(){
+    const t0=performance.now(), dur=1100;
+    const step=(now)=>{ let p=Math.min(1,(now-t0)/dur); p=1-Math.pow(1-p,3); this.setState({prog:p}); if(p<1)requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+
+  zoneOf(clean,S){ if(clean)return 'LIMPIO'; if(S<=this.RED)return 'ROJO'; if(S<=this.YEL)return 'AMARILLO'; return 'VERDE'; }
+
+  parse(text){
+    const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+    if(!lines.length) return [];
+    const head=lines[0].split(',').map(h=>h.trim());
+    const ix={}; head.forEach((h,i)=>ix[h]=i);
+    if(ix.SerialNumber==null || ix.S_High_mVA==null) return [];
+    const num=(c)=>{ const v=parseFloat(c); return isNaN(v)?0:v; };
+    const get=(c,k)=> ix[k]!=null ? (c[ix[k]]||'').trim() : '';
+    const out=[];
+    for(let i=1;i<lines.length;i++){
+      const c=lines[i].split(','); if(c.length<3) continue;
+      const S=+num(c[ix.S_High_mVA]).toFixed(3);
+      const Slow=+num(get(c,'S_Low_mVA')).toFixed(3);
+      const ratio= ix.Ratio_HL!=null ? +num(c[ix.Ratio_HL]).toFixed(4) : (Slow? +(S/Slow).toFixed(4):0);
+      const proy= ix.Proy_220A_High_mV!=null ? +num(c[ix.Proy_220A_High_mV]).toFixed(0) : 0;
+      const fecha= get(c,'Fecha');
+      // Corte Littelfuse (MesKey = Anio*100+Mes) — matches clasificar_zonas.py exactly.
+      // Fecha is M/D/YYYY, not sortable as a string, so derive from Anio/Mes columns
+      // when present; fall back to parsing Fecha only if they're missing.
+      const anio= ix.Anio!=null ? num(c[ix.Anio]) : 0;
+      const mes= ix.Mes!=null ? num(c[ix.Mes]) : 0;
+      let meskey= anio && mes ? anio*100+mes : 0;
+      if(!meskey && fecha){ const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(fecha); if(m) meskey=+m[3]*100+ +m[1]; }
+      const clean= meskey ? (meskey >= this.CORTE_MESKEY) : false;
+      // Ford ground truth: prefer Ford_Real, fall back to legacy Ford_220A
+      const fr= (get(c,'Ford_Real') || get(c,'Ford_220A') || '').toUpperCase();
+      const fordFail= fr==='FAIL';
+      const margen= ix.Margen_Ford_mV!=null ? +num(c[ix.Margen_Ford_mV]).toFixed(1) : +(proy-this.FORD_MV).toFixed(1);
+      const zone=this.zoneOf(clean,S);
+      out.push({ id:i, serial:get(c,'SerialNumber'), fecha:fecha||'—', S, Slow, ratio, proy, margen,
+        fordFail, fordReal: fordFail?'FAIL':'PASS', clean, zone, accion:this.Z[zone].accion });
+    }
+    return out;
+  }
+
+  fallback(){
+    // synthetic set spanning the March 2026 cutoff
+    const out=[]; let id=0;
+    const mk=(S,fecha)=>{ const proy=Math.round(2505+S*220); const clean=fecha>='2026-03-01'; const zone=this.zoneOf(clean,S);
+      const fordFail=!clean&&proy<this.FORD_MV;
+      return {id:id++,serial:'2616'+(8000500+id),fecha,S:+S.toFixed(3),Slow:+(S+14.3).toFixed(3),ratio:+(S/(S+14.3)).toFixed(4),proy,margen:+(proy-this.FORD_MV).toFixed(1),fordFail,fordReal:fordFail?'FAIL':'PASS',clean,zone,accion:this.Z[zone].accion}; };
+    const pre=['2025-11-14','2025-12-03','2026-01-22','2026-02-08'];
+    const post=['2026-03-11','2026-04-19','2026-05-06'];
+    for(let k=0;k<18;k++)out.push(mk(5.48+Math.random()*0.06,pre[k%pre.length]));
+    for(let k=0;k<40;k++)out.push(mk(5.56+Math.random()*0.09,pre[k%pre.length]));
+    for(let k=0;k<70;k++)out.push(mk(5.66+Math.random()*0.14,pre[k%pre.length]));
+    for(let k=0;k<50;k++)out.push(mk(5.70+Math.random()*0.12,post[k%post.length]));
+    return out;
+  }
+
+  // handlers
+  onSearch=(e)=>this.setState({search:e.target.value});
+  setFilter=(f)=>this.setState({filter:f});
+  setSort=(k)=>this.setState(s=>({sortKey:k, sortDir: s.sortKey===k && s.sortDir==='asc'?'desc':'asc'}));
+  onPick=()=>this.fileRef.current && this.fileRef.current.click();
+  onClear=()=>{ this.setState({filter:'all',search:''}); this.componentDidMount(); };
+  onDragOver=(e)=>{e.preventDefault(); if(!this.state.dragOver)this.setState({dragOver:true});};
+  onDragLeave=(e)=>{e.preventDefault(); this.setState({dragOver:false});};
+  onDrop=(e)=>{e.preventDefault(); this.setState({dragOver:false}); this.handleFiles(e.dataTransfer.files);};
+  onFiles=(e)=>this.handleFiles(e.target.files);
+
+  handleFiles(files){
+    if(!files||!files.length) return;
+    const csv=[...files].find(f=>/\.csv$/i.test(f.name));
+    if(!csv) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ const d=this.parse(rd.result); if(d.length){ this.data=d; this.setState({real:true,filter:'all'}); this.startAnim(); } };
+    rd.readAsText(csv);
+  }
+
+  download(name,rows,cols){
+    const esc=(v)=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const head=cols.map(c=>c.h).join(',');
+    const body=rows.map(u=>cols.map(c=>esc(c.f(u))).join(',')).join('\n');
+    const blob=new Blob([head+'\n'+body],{type:'text/csv'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
+  }
+  onExportContainment=()=>{
+    const rows=this.data.filter(u=>u.zone==='ROJO'||u.zone==='AMARILLO');
+    this.download('YazakiYED_Containment_Sorteo.csv', rows, [
+      {h:'Serial',f:u=>u.serial},{h:'Fecha',f:u=>u.fecha},{h:'S_High_mVA',f:u=>u.S.toFixed(3)},
+      {h:'S_Low_mVA',f:u=>u.Slow.toFixed(3)},{h:'Zona',f:u=>u.zone},{h:'Accion',f:u=>u.accion}
+    ]);
+  }
+  onExportFull=()=>{
+    this.download('YazakiYED_Reporte_Completo.csv', this.data, [
+      {h:'Serial',f:u=>u.serial},{h:'Fecha',f:u=>u.fecha},{h:'S_High_mVA',f:u=>u.S.toFixed(3)},
+      {h:'S_Low_mVA',f:u=>u.Slow.toFixed(3)},{h:'Ratio_HL',f:u=>u.ratio.toFixed(4)},
+      {h:'Proy_220A_mV',f:u=>u.proy},{h:'Margen_Ford_mV',f:u=>u.margen},
+      {h:'Ford_Real',f:u=>u.fordReal},{h:'Zona',f:u=>u.zone},{h:'Accion',f:u=>u.accion}
+    ]);
+  }
+
+  rgba(hex,a){const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+
+  renderVals(){
+    const {filter,search,sortKey,sortDir,prog,dragOver,real}=this.state;
+    const C=this.COL, data=this.data;
+    const total=data.length;
+    const cnt={ROJO:0,AMARILLO:0,VERDE:0,LIMPIO:0}; let fordFailN=0;
+    data.forEach(u=>{ cnt[u.zone]++; if(u.fordFail)fordFailN++; });
+    const sorteo=cnt.ROJO+cnt.AMARILLO;
+    const ri=(v)=>Math.round(v*prog).toLocaleString();
+
+    // HISTOGRAM
+    const X0=5.40, X1=5.90, BW=0.05, NB=Math.round((X1-X0)/BW);
+    const bins=Array.from({length:NB},()=>0);
+    data.forEach(u=>{ if(u.S>=X0&&u.S<X1){ const b=Math.floor((u.S-X0)/BW); if(bins[b]!=null)bins[b]++; } });
+    const maxB=Math.max(1,...bins);
+    const PL=34,PR=12,PT=18,PB=32,W=540,H=222,plotW=W-PL-PR,plotH=H-PT-PB,baseY=H-PB;
+    const xmap=(s)=>PL+(s-X0)/(X1-X0)*plotW;
+    const binCol=(sc)=> sc<=this.RED?C.rojo: sc<=this.YEL?C.amarillo: C.verde;
+    const histBars=bins.map((n,i)=>{
+      const s0=X0+i*BW, col=binCol(s0+BW/2);
+      const h=n/maxB*plotH, x=xmap(s0)+2.5, w=plotW/NB-5, cx=xmap(s0+BW/2);
+      return {x:+x.toFixed(1),y:+(baseY-h).toFixed(1),w:+w.toFixed(1),h:+h.toFixed(1),color:col,
+        cx:+cx.toFixed(1),label:n>0?String(n):'',labelY:+(baseY-h-4).toFixed(1),
+        tip:`S ${s0.toFixed(2)}–${(s0+BW).toFixed(2)} · ${n} pieza${n===1?'':'s'}`,
+        style:`transform-box:fill-box;transform-origin:center bottom;animation:growBar .7s ${(0.15+i*0.05).toFixed(2)}s cubic-bezier(.2,.8,.2,1) both;filter:drop-shadow(0 0 5px ${col}66)`};
+    });
+    const histTicks=[5.40,5.50,5.60,5.70,5.80,5.90].map(v=>({x:+xmap(v).toFixed(1),label:v.toFixed(2)}));
+
+    // ZONE DISTRIBUTION
+    const zorder=['ROJO','AMARILLO','VERDE','LIMPIO'];
+    const maxZ=Math.max(1,...zorder.map(z=>cnt[z]));
+    const zoneRows=zorder.map((z,i)=>({
+      name:this.Z[z].label, color:this.Z[z].c, count:cnt[z].toLocaleString(),
+      pct: total?((cnt[z]/total*100).toFixed(1)+'%'):'0%',
+      barW:(cnt[z]/maxZ*100).toFixed(0)+'%',
+      fill:`linear-gradient(90deg,${this.Z[z].c},${this.rgba(this.Z[z].c,0.5)})`,
+      sep:i===0?'transparent':'rgba(255,255,255,.05)'
+    }));
+
+    // SCATTER
+    const valS=data.filter(u=>u.S>=5.40&&u.S<=5.90);
+    const pMin=Math.min(this.FORD_MV-30, ...valS.map(u=>u.proy));
+    const pMax=Math.max(this.FORD_MV+40, ...valS.map(u=>u.proy));
+    const sY0=Math.floor(pMin), sY1=Math.ceil(pMax), sX0=5.40,sX1=5.90;
+    const sPL=34,sW=320,sPT=8,sPB=22,splotW=sW-sPL-12,splotH=132-sPT-sPB;
+    const sxm=(s)=>sPL+(Math.max(sX0,Math.min(sX1,s))-sX0)/(sX1-sX0)*splotW;
+    const sym=(v)=>sPT+(1-(Math.max(sY0,Math.min(sY1,v))-sY0)/(sY1-sY0))*splotH;
+    const stride=Math.max(1,Math.ceil(valS.length/420));
+    const sample=valS.filter((_,i)=>i%stride===0);
+    const scatterDots=sample.map((u,i)=>({
+      cx:+sxm(u.S).toFixed(1),cy:+sym(u.proy).toFixed(1),r: u.fordFail?3.4:2.4,
+      color:this.Z[u.zone].c,
+      tip:`${u.serial} · S ${u.S.toFixed(3)} · ${u.proy}mV @220A · ${u.zone}`,
+      style:`opacity:${u.fordFail?0.95:0.55};animation:dotIn .5s ${(0.3+(i%160)*0.003).toFixed(2)}s both`
+    }));
+    const fordY=+sym(this.FORD_MV).toFixed(1);
+
+    // TABLE
+    const q=search.trim().toLowerCase();
+    let filtered=data.filter(u=>{
+      if(filter==='fordfail'&&!u.fordFail)return false;
+      else if(filter!=='all'&&filter!=='fordfail'&&u.zone!==filter)return false;
+      if(q&&!u.serial.toLowerCase().includes(q))return false;
+      return true;
+    });
+    const zrank={ROJO:0,AMARILLO:1,VERDE:2,LIMPIO:3};
+    const dir=sortDir==='asc'?1:-1;
+    filtered=filtered.slice().sort((a,b)=>{
+      let av,bv;
+      if(sortKey==='zona'){av=zrank[a.zone];bv=zrank[b.zone];}
+      else if(sortKey==='serial'){av=a.serial;bv=b.serial;}
+      else if(sortKey==='fecha'){av=a.fecha;bv=b.fecha;}
+      else if(sortKey==='s'){av=a.S;bv=b.S;}
+      else {av=a.proy;bv=b.proy;}
+      if(av<bv)return -1*dir; if(av>bv)return 1*dir; return 0;
+    });
+    const rowsTotal=filtered.length;
+    const shown=filtered.slice(0,this.CAP);
+    const fmtRows=shown.map(u=>{
+      const col=this.Z[u.zone].c;
+      let sPre=u.serial,sHit='',sPost='';
+      if(q){ const idx=u.serial.toLowerCase().indexOf(q); if(idx>=0){ sPre=u.serial.slice(0,idx); sHit=u.serial.slice(idx,idx+q.length); sPost=u.serial.slice(idx+q.length);} }
+      return {
+        id:u.id, color:col, fecha:u.fecha, S:u.S.toFixed(3), Slow:u.Slow.toFixed(3), ratio:u.ratio.toFixed(3),
+        proy:u.proy, proyColor: u.proy<this.FORD_MV?C.rojo:'#f5f5f7',
+        accion:u.accion, sPre,sHit,sPost,
+        edge: u.zone==='ROJO'?col : u.zone==='AMARILLO'?col : 'transparent',
+        fordReal:u.fordReal, fordBg: u.fordFail?this.rgba(C.rojo,0.16):this.rgba(C.verde,0.16), fordFg: u.fordFail?C.rojoB:C.verde
+      };
+    });
+
+    // PILLS
+    const defs=[
+      {key:'all',label:'Todas',count:total,color:C.azul},
+      {key:'ROJO',label:'🔴 Retirar',count:cnt.ROJO,color:C.rojo},
+      {key:'AMARILLO',label:'🟡 Riesgo',count:cnt.AMARILLO,color:C.amarillo},
+      {key:'VERDE',label:'🟢 Liberar',count:cnt.VERDE,color:C.verde},
+      {key:'LIMPIO',label:'🔵 Post-Corrección',count:cnt.LIMPIO,color:C.azul},
+      {key:'fordfail',label:'⚠️ Ford FAIL',count:fordFailN,color:C.rojo}
+    ];
+    const pills=defs.map(d=>{ const active=filter===d.key; return {
+      label:d.label,count:d.count.toLocaleString(),onClick:()=>this.setFilter(d.key),
+      bg: active?this.rgba(d.color,0.15):'#141414', fg: active?d.color:'#86868b', border: active?this.rgba(d.color,0.4):'rgba(255,255,255,.06)'}; });
+
+    const caret=(k)=> sortKey===k?(sortDir==='asc'?'↑':'↓'):'';
+
+    return {
+      topBorder: dragOver?this.rgba(C.azul,0.7):'rgba(255,255,255,.07)',
+      uploadBg: dragOver?this.rgba(C.azul,0.14):'transparent',
+      uploadBorder: dragOver?this.rgba(C.azul,0.6):'rgba(255,255,255,.14)',
+      uploadLabel: real?'CSV cargado':'Subir CONSOLIDADO_CON_FORD.csv',
+      fileRef:this.fileRef, onPick:this.onPick, onFiles:this.onFiles, search, onSearch:this.onSearch,
+      onDragOver:this.onDragOver, onDragLeave:this.onDragLeave, onDrop:this.onDrop, onClear:this.onClear,
+      onExportContainment:this.onExportContainment, onExportFull:this.onExportFull,
+      kpiTotal:ri(total), kpiRojo:ri(cnt.ROJO), kpiAmarillo:ri(cnt.AMARILLO), kpiVerde:ri(cnt.VERDE), kpiLimpio:ri(cnt.LIMPIO),
+      kpiFordFail: fordFailN.toLocaleString(), sorteoCount: sorteo.toLocaleString(),
+      histBars, histTicks, redX:+xmap(this.RED).toFixed(1), yellowX:+xmap(this.YEL).toFixed(1),
+      scatterDots, fordY, fordYLabel:fordY-4, zoneRows,
+      pills, rows:fmtRows, empty: fmtRows.length===0,
+      rowsShown: shown.length.toLocaleString(), rowsTotal: rowsTotal.toLocaleString(),
+      sortZona:()=>this.setSort('zona'), sortSerial:()=>this.setSort('serial'), sortFecha:()=>this.setSort('fecha'),
+      sortS:()=>this.setSort('s'), sortProy:()=>this.setSort('proy'),
+      caretZona:caret('zona'), caretSerial:caret('serial'), caretFecha:caret('fecha'), caretS:caret('s'), caretProy:caret('proy')
+    };
+  }
+}
+</script>
+</body>
+</html>
