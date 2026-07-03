@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
-from . import config
+from . import config, ml_rank
 from .consolidate import (csv_string, risk_csv_string, summarize, unit_to_dict)
 from .parser import file_hash, parse
 from .schemas import (CrossRefResult, IngestResult, Summary, UnitsPage)
@@ -119,6 +119,34 @@ def consolidado_ford_csv():
     return FileResponse(path, media_type="text/csv",
                         headers={"Content-Disposition":
                                  "attachment; filename=CONSOLIDADO_CON_FORD.csv"})
+
+
+@app.get("/api/ml-rank.csv")
+def ml_rank_csv():
+    """Zona AMARILLO only, ranked by ML priority score (ML_Risk_Score/Rank) —
+    NOT a PASS/FAIL disposition. clasificar_zonas.py's deterministic zone rule
+    remains the sole source of truth for RETIRAR/SORTEO/LIBERAR; this ranks
+    the ~32K-unit sorteo pool so QE can triage by priority. Read-only, no auth
+    (mirrors /api/consolidado-ford.csv), 404 if the model hasn't been trained
+    yet (see scripts/train_ml_rank.py)."""
+    if not ml_rank.is_model_trained():
+        raise HTTPException(status_code=404,
+                            detail="ml_rank model not trained — run scripts/train_ml_rank.py")
+    body = ml_rank.ml_rank_csv_string()
+    return PlainTextResponse(body, media_type="text/csv",
+                             headers={"Content-Disposition": "attachment; filename=ml-rank.csv"})
+
+
+@app.get("/api/ml-rank/meta")
+def ml_rank_meta():
+    """Training report for the zona AMARILLO ranking model (PR-AUC, ROC-AUC,
+    gain@10/25/50%) — what the dashboard's ML KPI card quotes, read live so it
+    never goes stale relative to the deployed model."""
+    report = ml_rank.load_report()
+    if report is None:
+        raise HTTPException(status_code=404,
+                            detail="ml_rank model not trained — run scripts/train_ml_rank.py")
+    return report
 
 
 @app.get("/api/risk-report.csv")

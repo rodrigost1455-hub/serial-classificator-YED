@@ -7,6 +7,11 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY backend/app backend/app
 
+# Trained zona AMARILLO ranking model (offline-trained, see scripts/train_ml_rank.py).
+# Committed to the repo — retrain and recommit whenever CONSOLIDADO_CON_FORD.csv
+# is refreshed; never trained inside the container or a request.
+COPY backend/models backend/models
+
 # Static dashboard the backend serves at "/" (see app/main.py:dashboard_index).
 COPY index.html support.js ./
 

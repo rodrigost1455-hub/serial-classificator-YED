@@ -151,3 +151,55 @@ read it before making changes to `calc.py` or `parser.py`.
 - Both scripts hardcode `BASE`/`CSV`/`OUT` paths relative to their own file location and
   expect `CONSOLIDADO_CON_FORD.csv` at the repo root; run them from anywhere with
   `python pipeline_ford_ml.py` / `python clasificar_zonas.py`.
+
+## ML ranking inside zona AMARILLO (`backend/app/ml_rank.py`)
+
+**This is a ranking aid, not a disposition.** `clasificar_zonas.py`'s deterministic
+zone rule (ROJO/AMARILLO/VERDE/LIMPIO → RETIRAR/SORTEO/LIBERAR) is the sole source of
+truth for what happens to a unit. `ml_rank.py` only adds `ML_Risk_Score` (P(Ford_Real=
+FAIL), 0–1) and `ML_Risk_Rank` (1..N) *within* the ~32K-unit zona AMARILLO pool, so QE
+can triage the sorteo list by priority instead of treating it as flat. Outside AMARILLO
+both are always `None`/absent — the zone rule already decided those units, ranking
+doesn't apply. **Never let `ML_Risk_Score` influence `Status`/`Ford_220A`/the zone
+disposition** — it's an orthogonal column, same principle as never collapsing
+`Status`/`Ford_220A` into each other.
+
+- **Why no temporal features.** An earlier modeling attempt (`pipeline_ford_ml.py`'s
+  exploratory run) used `Dia_Juliano`/`Mes_Cos` as top-SHAP features — the model had
+  memorized *which months had failures*, not sensor physics, and its recall collapsed
+  outside its training date range. `ml_rank.FEATURES` is physical/electrical only
+  (`Consumo_mA`, `Offset_High_V`, `Offset_Low_V`, `V_20A_High_V`, `V_20A_Low_V`,
+  `Tiempo_ms_High`, `Tiempo_ms_Low`, `Delta_V_High`, `Delta_V_Low`, `S_High_mVA`,
+  `S_Low_mVA`, `Ratio_HL`) — never add `Fecha`/`Anio`/`Mes`/`Dia` or anything derived
+  from them. `tests/test_ml_rank.py::test_no_temporal_features` guards this.
+- **Zone/dedup logic is duplicated from `clasificar_zonas.py` on purpose** (`ml_rank.
+  zona_de`, `CORTE_MESKEY`/`UMBRAL_ROJO`/`UMBRAL_AMARILLO`, `_dedupe_by_serial` — one row
+  per serial, earliest/production date wins). Same pattern as `index.html`'s JS
+  constants: a business rule maintained in more than one place by necessity. Retune the
+  zone thresholds in `clasificar_zonas.py`? Retune them here too.
+- **Training is always offline.** `train_ranking_model()` (StratifiedGroupKFold by
+  month, candidates RandomForest + a module-level `ScaledLogReg`, picks the better one
+  by OOF PR-AUC) is only ever invoked from `scripts/train_ml_rank.py`
+  (`python -m scripts.train_ml_rank` from `backend/`), never from a request handler.
+  Real numbers on the current `CONSOLIDADO_CON_FORD.csv` (31,949 zona-AMARILLO units
+  deduped to one-per-serial, 187 confirmed `Ford_Real=FAIL`): best model `LogReg`,
+  PR-AUC 0.031 (≈5.3× the 0.59% base rate), ROC-AUC 0.825, **gain@25%=84.0%** (the top
+  25% of the ranking captures 84% of known FAILs). Retrain and recommit
+  `backend/models/ml_rank.pkl` + `ml_rank_report.json` whenever the CSV is refreshed —
+  they're committed artifacts, not generated at container build time.
+- **Serving is batched, not per-row.** `compute_ml_rank()` scores the entire AMARILLO
+  matrix in one `predict_proba` call and caches the result in-process (the CSV is
+  static). The first implementation looped `predict_proba` per row (~32K individual
+  calls) and the endpoint timed out — if you're touching this function, keep the batch
+  shape.
+- **Endpoints**: `GET /api/ml-rank.csv` (ranked AMARILLO rows: `Serial, Fecha,
+  S_High_mVA, Ratio_HL, ML_Risk_Score, ML_Risk_Rank, Ford_Real`) and `GET
+  /api/ml-rank/meta` (the training report — what the dashboard's KPI card quotes, so it
+  never goes stale relative to the deployed model). Both read-only, no auth, same
+  pattern as `/api/consolidado-ford.csv`. 404 if `backend/models/ml_rank.pkl` is
+  missing.
+- **Dashboard**: `index.html` fetches both endpoints independently in
+  `componentDidMount` (best-effort, never blocks the main dataset render). Table gets an
+  "ML Risk" badge column (red >50%, orange 20–50%, gray <20%, dash outside AMARILLO) and
+  a `mlrank` sort key; the AMARILLO KPI card shows the live gain@25% figure; a new
+  "Export Priorizado (Top ML Risk)" button downloads `/api/ml-rank.csv` directly.

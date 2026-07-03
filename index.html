@@ -78,6 +78,9 @@
         <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🟡 Riesgo · Sorteo</div>
         <div class="tnum" style="font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:4px;line-height:1;color:#ff9f0a">{{ kpiAmarillo }}</div>
         <div style="font-size:11px;color:#48484a;margin-top:3px">5.55 &lt; S ≤ 5.65 · sortear</div>
+        <sc-if value="{{ kpiMlGainVisible }}" hint-placeholder-val="{{ false }}">
+          <div class="mono" style="font-size:10px;color:#ff9f0a;margin-top:4px;font-weight:600">{{ kpiMlGain }}</div>
+        </sc-if>
       </div>
       <div style="background:#0a0a0a;border:1px solid rgba(48,209,88,.14);border-radius:15px;padding:14px 16px;animation:fadeUp .5s .15s both">
         <div style="font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#86868b">🟢 Liberar · S &gt; 5.65</div>
@@ -181,7 +184,7 @@
 
     <!-- TABLE -->
     <div style="flex:1;min-height:0;background:#0a0a0a;border:1px solid rgba(255,255,255,.05);border-radius:16px;display:flex;flex-direction:column;overflow:hidden">
-      <div style="display:grid;grid-template-columns:44px 1.15fr 100px 82px 78px 62px 92px 76px 92px;align-items:center;gap:8px;padding:10px 18px;background:rgba(20,20,20,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#86868b">
+      <div style="display:grid;grid-template-columns:44px 1.05fr 96px 76px 72px 56px 88px 68px 66px 88px;align-items:center;gap:8px;padding:10px 18px;background:rgba(20,20,20,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#86868b">
         <span onClick="{{ sortZona }}" style="cursor:pointer">Zona {{ caretZona }}</span>
         <span onClick="{{ sortSerial }}" style="cursor:pointer">Serial {{ caretSerial }}</span>
         <span onClick="{{ sortFecha }}" style="cursor:pointer">Fecha {{ caretFecha }}</span>
@@ -190,11 +193,12 @@
         <span style="text-align:right">Ratio</span>
         <span onClick="{{ sortProy }}" style="cursor:pointer;text-align:right">Proy 220A {{ caretProy }}</span>
         <span style="text-align:center">Ford</span>
+        <span onClick="{{ sortMl }}" style="cursor:pointer;text-align:center" title="Ranking ML dentro de zona AMARILLO">ML Risk {{ caretMl }}</span>
         <span style="text-align:right">Acción</span>
       </div>
       <div style="flex:1;min-height:0;overflow-y:auto">
         <sc-for list="{{ rows }}" as="r" hint-placeholder-count="16">
-          <div class="trow" style="display:grid;grid-template-columns:44px 1.15fr 100px 82px 78px 62px 92px 76px 92px;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid rgba(255,255,255,.04);border-left:3px solid {{ r.edge }};transition:background .15s">
+          <div class="trow" style="display:grid;grid-template-columns:44px 1.05fr 96px 76px 72px 56px 88px 68px 66px 88px;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid rgba(255,255,255,.04);border-left:3px solid {{ r.edge }};transition:background .15s">
             <span style="display:flex;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:{{ r.color }};box-shadow:0 0 7px {{ r.color }}"></span></span>
             <span class="mono" style="font-size:12px;color:#f5f5f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sPre }}<span style="background:rgba(10,132,255,.32);border-radius:3px">{{ r.sHit }}</span>{{ r.sPost }}</span>
             <span class="mono" style="font-size:11px;color:#c7c7cc">{{ r.fecha }}</span>
@@ -203,6 +207,7 @@
             <span class="mono" style="font-size:12px;text-align:right;color:#86868b">{{ r.ratio }}</span>
             <span class="mono" style="font-size:12px;text-align:right;color:{{ r.proyColor }}">{{ r.proy }}</span>
             <span style="text-align:center"><span style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:6px;background:{{ r.fordBg }};color:{{ r.fordFg }}">{{ r.fordReal }}</span></span>
+            <span style="text-align:center"><span class="mono" style="font-size:9px;font-weight:700;letter-spacing:.02em;padding:2px 7px;border-radius:6px;background:{{ r.mlBg }};color:{{ r.mlFg }}">{{ r.mlLabel }}</span></span>
             <span style="text-align:right;font-size:10px;font-weight:600;letter-spacing:.03em;color:{{ r.color }}">{{ r.accion }}</span>
           </div>
         </sc-for>
@@ -221,6 +226,10 @@
         <button onClick="{{ onExportFull }}" style="display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:10px;border:1px solid rgba(10,132,255,.3);background:rgba(10,132,255,.12);color:#0a84ff;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>
           Reporte Completo
+        </button>
+        <button onClick="{{ onExportMlRank }}" title="Zona AMARILLO ranqueada por score ML (GET /api/ml-rank.csv)" style="display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:10px;border:1px solid rgba(255,159,10,.3);background:rgba(255,159,10,.12);color:#ff9f0a;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff9f0a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Export Priorizado (Top ML Risk)
         </button>
       </div>
     </div>
@@ -250,7 +259,7 @@ class Component extends DCLogic {
   Z={ROJO:{c:'#ff453a',label:'🔴 Retirar',accion:'RETIRAR'},AMARILLO:{c:'#ff9f0a',label:'🟡 Riesgo',accion:'SORTEAR'},VERDE:{c:'#30d158',label:'🟢 Liberar',accion:'LIBERAR'},LIMPIO:{c:'#0a84ff',label:'🔵 Post-Corrección',accion:'LIMPIO'}};
   DATASET='/api/consolidado-ford.csv';
 
-  constructor(props){ super(props); this.fileRef=React.createRef(); this.data=[]; }
+  constructor(props){ super(props); this.fileRef=React.createRef(); this.data=[]; this.mlScores={}; this.mlMeta=null; }
 
   componentDidMount(){
     this.startAnim();
@@ -258,6 +267,29 @@ class Component extends DCLogic {
       const d=this.parse(t);
       if(d.length){ this.data=d; this.startAnim(); this.setState({tick:this.state.tick+1}); }
     }).catch(()=>{ this.data=this.fallback(); this.setState({tick:this.state.tick+1}); });
+    // ML priority ranking (zona AMARILLO only) — independent, best-effort fetch.
+    // Never blocks or replaces the deterministic zone disposition above.
+    fetch('/api/ml-rank/meta').then(r=>r.ok?r.json():null).then(m=>{
+      if(m){ this.mlMeta=m; this.setState({tick:this.state.tick+1}); }
+    }).catch(()=>{});
+    fetch('/api/ml-rank.csv').then(r=>r.ok?r.text():null).then(t=>{
+      if(t){ this.mlScores=this.parseMlRank(t); this.setState({tick:this.state.tick+1}); }
+    }).catch(()=>{});
+  }
+
+  parseMlRank(text){
+    const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+    if(!lines.length) return {};
+    const head=lines[0].split(',').map(h=>h.trim());
+    const ix={}; head.forEach((h,i)=>ix[h]=i);
+    if(ix.Serial==null || ix.ML_Risk_Score==null) return {};
+    const map={};
+    for(let i=1;i<lines.length;i++){
+      const c=lines[i].split(','); if(c.length<3) continue;
+      const serial=(c[ix.Serial]||'').trim(); if(!serial) continue;
+      map[serial]={score:parseFloat(c[ix.ML_Risk_Score])||0, rank:parseInt(c[ix.ML_Risk_Rank],10)||0};
+    }
+    return map;
   }
   startAnim(){
     const t0=performance.now(), dur=1100;
@@ -359,6 +391,14 @@ class Component extends DCLogic {
       {h:'Ford_Real',f:u=>u.fordReal},{h:'Zona',f:u=>u.zone},{h:'Accion',f:u=>u.accion}
     ]);
   }
+  onExportMlRank=()=>{
+    // Server-side file (GET /api/ml-rank.csv) — zona AMARILLO ranked by ML
+    // priority score, not client-derived, so this always reflects the
+    // currently-deployed model exactly.
+    const a=document.createElement('a');
+    a.href='/api/ml-rank.csv'; a.download='ml-rank.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
 
   rgba(hex,a){const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 
@@ -434,6 +474,12 @@ class Component extends DCLogic {
       else if(sortKey==='serial'){av=a.serial;bv=b.serial;}
       else if(sortKey==='fecha'){av=a.fecha;bv=b.fecha;}
       else if(sortKey==='s'){av=a.S;bv=b.S;}
+      else if(sortKey==='mlrank'){
+        // Non-AMARILLO / unscored rows have no rank — sort them after ranked ones.
+        const ra=this.mlScores[a.serial], rb=this.mlScores[b.serial];
+        av=(a.zone==='AMARILLO'&&ra)?ra.rank:Infinity;
+        bv=(b.zone==='AMARILLO'&&rb)?rb.rank:Infinity;
+      }
       else {av=a.proy;bv=b.proy;}
       if(av<bv)return -1*dir; if(av>bv)return 1*dir; return 0;
     });
@@ -443,12 +489,22 @@ class Component extends DCLogic {
       const col=this.Z[u.zone].c;
       let sPre=u.serial,sHit='',sPost='';
       if(q){ const idx=u.serial.toLowerCase().indexOf(q); if(idx>=0){ sPre=u.serial.slice(0,idx); sHit=u.serial.slice(idx,idx+q.length); sPost=u.serial.slice(idx+q.length);} }
+      // ML priority score — only meaningful in zona AMARILLO; the zone rule
+      // already decided everything else, so it's a dash elsewhere.
+      const mlEntry = u.zone==='AMARILLO' ? this.mlScores[u.serial] : null;
+      let mlLabel='—', mlBg='transparent', mlFg='#3a3a3c';
+      if(mlEntry){
+        const pct=Math.round(mlEntry.score*100);
+        const mlColor = mlEntry.score>0.5?C.rojo : mlEntry.score>=0.2?C.amarillo : '#86868b';
+        mlLabel=pct+'%'; mlBg=this.rgba(mlColor,0.16); mlFg=mlColor;
+      }
       return {
         id:u.id, color:col, fecha:u.fecha, S:u.S.toFixed(3), Slow:u.Slow.toFixed(3), ratio:u.ratio.toFixed(3),
         proy:u.proy, proyColor: u.proy<this.FORD_MV?C.rojo:'#f5f5f7',
         accion:u.accion, sPre,sHit,sPost,
         edge: u.zone==='ROJO'?col : u.zone==='AMARILLO'?col : 'transparent',
-        fordReal:u.fordReal, fordBg: u.fordFail?this.rgba(C.rojo,0.16):this.rgba(C.verde,0.16), fordFg: u.fordFail?C.rojoB:C.verde
+        fordReal:u.fordReal, fordBg: u.fordFail?this.rgba(C.rojo,0.16):this.rgba(C.verde,0.16), fordFg: u.fordFail?C.rojoB:C.verde,
+        mlLabel, mlBg, mlFg
       };
     });
 
@@ -467,6 +523,11 @@ class Component extends DCLogic {
 
     const caret=(k)=> sortKey===k?(sortDir==='asc'?'↑':'↓'):'';
 
+    // ML KPI for the AMARILLO card — real number from the trained model's
+    // OOF report (/api/ml-rank/meta), never a made-up figure.
+    const mlGainPct = this.mlMeta ? Math.round(this.mlMeta.gain_top25pct*100) : null;
+    const kpiMlGain = mlGainPct!=null ? `Top 25% ML ≈ ${mlGainPct}% de fallas confirmadas` : '';
+
     return {
       topBorder: dragOver?this.rgba(C.azul,0.7):'rgba(255,255,255,.07)',
       uploadBg: dragOver?this.rgba(C.azul,0.14):'transparent',
@@ -482,8 +543,10 @@ class Component extends DCLogic {
       pills, rows:fmtRows, empty: fmtRows.length===0,
       rowsShown: shown.length.toLocaleString(), rowsTotal: rowsTotal.toLocaleString(),
       sortZona:()=>this.setSort('zona'), sortSerial:()=>this.setSort('serial'), sortFecha:()=>this.setSort('fecha'),
-      sortS:()=>this.setSort('s'), sortProy:()=>this.setSort('proy'),
-      caretZona:caret('zona'), caretSerial:caret('serial'), caretFecha:caret('fecha'), caretS:caret('s'), caretProy:caret('proy')
+      sortS:()=>this.setSort('s'), sortProy:()=>this.setSort('proy'), sortMl:()=>this.setSort('mlrank'),
+      caretZona:caret('zona'), caretSerial:caret('serial'), caretFecha:caret('fecha'), caretS:caret('s'), caretProy:caret('proy'),
+      caretMl:caret('mlrank'), onExportMlRank:this.onExportMlRank,
+      kpiMlGain, kpiMlGainVisible: mlGainPct!=null
     };
   }
 }

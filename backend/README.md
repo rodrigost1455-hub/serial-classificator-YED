@@ -40,6 +40,9 @@ frontend change is needed.
 | `POST` | `/api/crossref` | Join a SAP/shipment file `[Serial, Ship_Date, Destination_Plant]` to flag shipped at-risk units |
 | `GET`  | `/api/config` | Live limits/cohorts (traceability) |
 | `GET`  | `/api/health` | Liveness + unit count |
+| `GET`  | `/api/consolidado-ford.csv` | Static passthrough of `CONSOLIDADO_CON_FORD.csv` (has `Ford_Real` ground truth) — what the dashboard and ML scripts read |
+| `GET`  | `/api/ml-rank.csv` | Zona AMARILLO only, ranked by ML priority score (`ML_Risk_Score`/`Rank`) — a ranking aid, never a disposition. See `app/ml_rank.py` |
+| `GET`  | `/api/ml-rank/meta` | Training report for the ranking model (PR-AUC, ROC-AUC, gain@10/25/50%) |
 
 `GET /api/summary` returns:
 
