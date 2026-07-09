@@ -144,10 +144,23 @@ read it before making changes to `calc.py` or `parser.py`.
   contains 5 FAIL. Writes plots/metrics to `ml_output/`.
 - `clasificar_zonas.py` — a **deterministic business rule**, not a model: classifies every
   unit into a zone (ROJO/AMARILLO/VERDE/LIMPIO) by `S_High_mVA` against fixed thresholds
-  (`UMBRAL_ROJO=5.55`, `UMBRAL_AMARILLO=5.65`) and a hard temporal cutover
-  (`CORTE=202603`, March 2026 — when Littelfuse fixed the root cause upstream). Validates
-  the rule against `Ford_Real` and specifically reports escapes (real FAILs the rule would
-  have released). Writes to `zonas_output/`.
+  and a hard temporal cutover (`CORTE=202603`, March 2026 — when Littelfuse fixed the root
+  cause upstream). Validates the rule against `Ford_Real` and specifically reports escapes
+  (real FAILs the rule would have released). Runs **both** threshold versions on each
+  invocation and writes v1 → `zonas_output/`, v2 → `zonas_output_v2/`:
+  - **v1** (`UMBRAL_ROJO=5.55`, `UMBRAL_AMARILLO=5.65`, no rounding) — the historical rule,
+    reverse-engineered from our own 462-datum estimate. Still the live-served rule.
+  - **v2** (`UMBRAL_ROJO_V2=5.60`, `UMBRAL_AMARILLO_V2=5.65`, `snap_grid=True`) — calibrated
+    to Ford's **confirmed** WMA criterion (reject code 12250, `Delta_Crnt > ±2.40 A @ 220 A`
+    → `S_MIN_FORD=5.638`, `S_MAX_FORD=5.762`). `ZoneConfig.snap_grid` rounds `S_High` to 4
+    decimals before comparing: `S = ΔV/0.020` carries sub-ULP float noise (e.g.
+    `0.112/0.020 = 5.600000000000005`), so a threshold on the tester's 0.05-mV/A
+    quantization grid (like `5.60`) is otherwise nondeterministic. v2 halves escapes (23→11)
+    and lifts zone recall (89.4%→94.9%). Adds a `Ford_Real_Formula` column (Delta_Crnt proxy)
+    and writes `comparativa_v1_v2.txt` + `discrepancia_ford_littelfuse.txt`. **Discrepancy
+    to remember**: Ford's ±1.09% is tighter than Littelfuse's ±1.7% manufacturing spec —
+    parts with S in 5.603–5.638 pass Littelfuse but fail Ford's operating criterion
+    (negotiation candidates). v2 is **not yet wired to the dashboard** — validated offline first.
 - Both scripts hardcode `BASE`/`CSV`/`OUT` paths relative to their own file location and
   expect `CONSOLIDADO_CON_FORD.csv` at the repo root; run them from anywhere with
   `python pipeline_ford_ml.py` / `python clasificar_zonas.py`.
@@ -176,7 +189,26 @@ disposition** — it's an orthogonal column, same principle as never collapsing
   zona_de`, `CORTE_MESKEY`/`UMBRAL_ROJO`/`UMBRAL_AMARILLO`, `_dedupe_by_serial` — one row
   per serial, earliest/production date wins). Same pattern as `index.html`'s JS
   constants: a business rule maintained in more than one place by necessity. Retune the
-  zone thresholds in `clasificar_zonas.py`? Retune them here too.
+  zone thresholds in `clasificar_zonas.py`? Retune them here too. `zona_de`/
+  `load_amarillo_rows`/`train_ranking_model` take optional `umbral_rojo`/`umbral_amarillo`/
+  `snap_grid` args that **default to v1** — the live serving path (`ml_risk_score_for_row`,
+  `compute_ml_rank`) never passes them, so default behavior is byte-identical to before.
+- **v2 models (trained by `scripts/train_ml_rank_v2.py`, 3 seeds each).** Two pkls:
+  - `models/ml_rank_v2.pkl` (**narrow**) — re-filters AMARILLO with the v2 zone thresholds
+    (`5.60 < S ≤ 5.65`, `snap_grid`). **Collapses**: that band is a single DMM-quantized
+    value `S=5.65`, so `S_High`/`Delta_V_High` (the dominant features) are constant and the
+    ranker has no signal — Gain@25% 84%→14%, ROC-AUC 0.82→**0.38** (worse than chance).
+  - `models/ml_rank_v2_wide.pkl` (**wide**) — a two-sided ML-ONLY band
+    (`UMBRAL_AMARILLO_ML_MIN=5.638 < S ≤ UMBRAL_AMARILLO_ML_MAX=5.700`, `train_ranking_model(
+    band=(...))` / `load_ml_band_rows`) spanning two quantized values (5.65 **and** 5.70).
+    Restores signal: ROC-AUC 0.38→**0.56** (above chance), Gain@50% 42%→68% — confirming the
+    collapse was quantization, not data scarcity. This band changes **no unit's disposition**
+    (the deterministic ROJO/AMARILLO/VERDE rule is untouched); it only widens the pool the
+    ranking is *computed over*. `test_wide_ml_band_has_signal` guards the ≥2-value invariant.
+  Why v2 still trails v1 on Gain@25%: v2's better zone rule already pulls the 147 strong-signal
+  FAILs at `S=5.60` into ROJO (RETIRAR), so the ML only triages the genuinely-hard residual.
+  **v1 remains the served model**; both v2 pkls are committed as the record of this finding,
+  neither wired to a route until the wide band is confirmed (already stable across 3 seeds).
 - **Training is always offline.** `train_ranking_model()` (StratifiedGroupKFold by
   month, candidates RandomForest + a module-level `ScaledLogReg`, picks the better one
   by OOF PR-AUC) is only ever invoked from `scripts/train_ml_rank.py`

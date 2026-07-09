@@ -41,6 +41,28 @@ CORTE_MESKEY = 202603
 UMBRAL_ROJO = 5.55
 UMBRAL_AMARILLO = 5.65
 
+# v2 thresholds — calibrated against Ford's real WMA criterion (Delta_Crnt
+# > ±2.40 A @ 220 A → S_MIN_FORD = 5.638 mV/A). Mirrors clasificar_zonas.py's
+# UMBRAL_ROJO_V2/UMBRAL_AMARILLO_V2. snap_grid rounds S_High to 4 decimals
+# before comparing, because S = ΔV/0.020 carries sub-ULP float noise that would
+# otherwise make a threshold sitting exactly on the 0.05 grid (5.60) nondeter-
+# ministic — see clasificar_zonas.ZoneConfig. v2 always trains/serves with it on.
+UMBRAL_ROJO_V2 = 5.60
+UMBRAL_AMARILLO_V2 = 5.65
+
+# v2 "wide" ML band — for the RANKING MODEL ONLY, decoupled from the
+# deterministic ROJO/AMARILLO/VERDE disposition (which stays 5.60/5.65). The
+# narrow v2 AMARILLO band (5.60 < S ≤ 5.65) collapses to a single DMM-quantized
+# value (S=5.65), so S_High/Delta_V_High are constant and the model has no
+# physical signal to rank on (Gain@25% 84%→14%, ROC-AUC 0.38). Widening the ML
+# band to (5.638, 5.700] spans more than one quantization step (5.65 AND 5.70),
+# restoring the variability the model needs. This does NOT change any unit's
+# disposition — it only widens the pool the ranking is *computed over*.
+#   5.638 = S_MIN_FORD_V2 (Ford's real ±2.40 A operating limit)
+#   5.700 = S_NOMINAL (one full quantization step past 5.65)
+UMBRAL_AMARILLO_ML_MIN = 5.638
+UMBRAL_AMARILLO_ML_MAX = 5.700
+
 # Physical/electrical features only. Never add Fecha/Anio/Mes/Dia or anything
 # derived from them here — see module docstring.
 FEATURES: List[str] = [
@@ -110,32 +132,82 @@ def _dedupe_by_serial(rows: List[dict]) -> List[dict]:
     return list(canon.values())
 
 
-def zona_de(meskey: int, s_high: Optional[float]) -> str:
-    """ROJO/AMARILLO/VERDE/LIMPIO — identical logic to clasificar_zonas.py."""
+def zona_de(meskey: int, s_high: Optional[float],
+            umbral_rojo: float = UMBRAL_ROJO,
+            umbral_amarillo: float = UMBRAL_AMARILLO,
+            snap_grid: bool = False) -> str:
+    """ROJO/AMARILLO/VERDE/LIMPIO — identical logic to clasificar_zonas.py.
+
+    Defaults reproduce v1 (the live serving model) exactly. Pass the v2
+    thresholds + snap_grid=True to filter the v2 zona AMARILLO pool."""
     if meskey >= CORTE_MESKEY:
         return "LIMPIO"
     if s_high is None:
         return "ROJO"
-    if s_high <= UMBRAL_ROJO:
+    s = round(s_high, 4) if snap_grid else s_high
+    if s <= umbral_rojo:
         return "ROJO"
-    if s_high <= UMBRAL_AMARILLO:
+    if s <= umbral_amarillo:
         return "AMARILLO"
     return "VERDE"
 
 
-def _row_zona(row: dict) -> str:
+def _row_zona(row: dict, umbral_rojo: float = UMBRAL_ROJO,
+              umbral_amarillo: float = UMBRAL_AMARILLO,
+              snap_grid: bool = False) -> str:
     meskey = int(row["Anio"]) * 100 + int(row["Mes"])
-    return zona_de(meskey, _num(row.get("S_High_mVA")))
+    return zona_de(meskey, _num(row.get("S_High_mVA")),
+                   umbral_rojo, umbral_amarillo, snap_grid)
 
 
-def load_amarillo_rows(csv_path: Optional[str] = None) -> List[dict]:
+def load_amarillo_rows(csv_path: Optional[str] = None,
+                       umbral_rojo: float = UMBRAL_ROJO,
+                       umbral_amarillo: float = UMBRAL_AMARILLO,
+                       snap_grid: bool = False) -> List[dict]:
     """Deduped (one-per-serial) rows from CONSOLIDADO_CON_FORD.csv, filtered to
-    zona AMARILLO — the only rows the ranking model ever trains or scores on."""
+    zona AMARILLO — the only rows the ranking model ever trains or scores on.
+
+    Defaults = v1. Pass v2 thresholds (5.60/5.65, snap_grid=True) for the
+    Ford-calibrated pool."""
     path = csv_path or config.CONSOLIDADO_FORD_PATH
     with open(path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     rows = _dedupe_by_serial(rows)
-    return [r for r in rows if _row_zona(r) == "AMARILLO"]
+    return [r for r in rows
+            if _row_zona(r, umbral_rojo, umbral_amarillo, snap_grid) == "AMARILLO"]
+
+
+def _row_in_ml_band(row: dict, s_min: float, s_max: float, snap_grid: bool) -> bool:
+    """True if a row falls in the (s_min, s_max] ML band, RIESGO period only.
+
+    Two-sided band for the ranking model, independent of the ROJO/AMARILLO/VERDE
+    disposition. LIMPIO (post-March) parts are excluded — same as the zone rule,
+    they are clean production and never enter the sorteo."""
+    meskey = int(row["Anio"]) * 100 + int(row["Mes"])
+    if meskey >= CORTE_MESKEY:
+        return False
+    s = _num(row.get("S_High_mVA"))
+    if s is None:
+        return False
+    if snap_grid:
+        s = round(s, 4)
+    return s_min < s <= s_max
+
+
+def load_ml_band_rows(csv_path: Optional[str] = None,
+                      s_min: float = UMBRAL_AMARILLO_ML_MIN,
+                      s_max: float = UMBRAL_AMARILLO_ML_MAX,
+                      snap_grid: bool = True) -> List[dict]:
+    """Deduped rows in the (s_min, s_max] ML band — the widened v2 ranking pool.
+
+    Same one-per-serial dedup and RIESGO-period restriction as
+    load_amarillo_rows, but selected by a two-sided sensitivity band instead of
+    the ROJO/AMARILLO zone cutoffs, so the pool spans >1 DMM quantization step."""
+    path = csv_path or config.CONSOLIDADO_FORD_PATH
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    rows = _dedupe_by_serial(rows)
+    return [r for r in rows if _row_in_ml_band(r, s_min, s_max, snap_grid)]
 
 
 def _feature_vector(row: dict) -> List[float]:
@@ -144,8 +216,17 @@ def _feature_vector(row: dict) -> List[float]:
 
 # ---------------------------------------------------------------- training
 def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
-                        n_estimators: int = 500):
+                        n_estimators: int = 500,
+                        umbral_rojo: float = UMBRAL_ROJO,
+                        umbral_amarillo: float = UMBRAL_AMARILLO,
+                        snap_grid: bool = False,
+                        band: Optional[Tuple[float, float]] = None):
     """Train + out-of-fold-validate a ranking model on zona AMARILLO only.
+
+    ``band=(s_min, s_max)`` overrides the zone-based pool with the two-sided ML
+    band (load_ml_band_rows) — used by the v2 "wide" model to escape the
+    single-quantized-value collapse of the narrow AMARILLO band. When band is
+    None the pool is the ROJO/AMARILLO zone selection (v1/narrow-v2 behavior).
 
     Candidates are RandomForest and a scaled LogisticRegression (both
     sklearn-only, no extra heavy deps beyond what's already required); the
@@ -168,9 +249,12 @@ def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
     from sklearn.metrics import average_precision_score, roc_auc_score
     from sklearn.model_selection import StratifiedGroupKFold
 
-    rows = load_amarillo_rows(csv_path)
+    if band is not None:
+        rows = load_ml_band_rows(csv_path, band[0], band[1], snap_grid)
+    else:
+        rows = load_amarillo_rows(csv_path, umbral_rojo, umbral_amarillo, snap_grid)
     if not rows:
-        raise ValueError("No zona AMARILLO rows found to train on")
+        raise ValueError("No ranking pool rows found to train on")
     df = pd.DataFrame(rows)
 
     for f in FEATURES:
@@ -216,6 +300,9 @@ def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
         "pr_auc": float(best_ap),
         "roc_auc": float(roc_auc_score(y, best_oof)),
         "features": list(FEATURES),
+        "zone": {"umbral_rojo": umbral_rojo, "umbral_amarillo": umbral_amarillo,
+                 "snap_grid": snap_grid,
+                 "band": list(band) if band is not None else None},
         **_lift_report(y, best_oof),
     }
 

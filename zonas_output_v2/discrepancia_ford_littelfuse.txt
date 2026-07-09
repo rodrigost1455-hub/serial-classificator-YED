@@ -1,0 +1,50 @@
+================================================================================
+HALLAZGO TÉCNICO — Discrepancia de tolerancia FORD vs LITTELFUSE
+================================================================================
+
+EVIDENCIA
+  Sistema WMA Dashboard de Ford, reject code 12250:
+    "ISC System ESR Charge Step 03 Drv-Btry Delta Crnt High"
+  Criterio de rechazo confirmado en campo:
+    Delta_Crnt = |Supply_Current_Act - Pack_Current_reportado| > 2.40 A
+    sobre una corriente comandada de 220 A.
+
+CONVERSIÓN A SENSIBILIDAD (S, mV/A; nominal 5.7)
+  Ford (criterio de sistema completo, confirmado WMA):
+    tolerancia = ±2.4 A / 220 A = ±1.0909 %
+      S_MIN_FORD = 5.7 · (1 - 0.010909) = 5.638 mV/A
+      S_MAX_FORD = 5.7 · (1 + 0.010909) = 5.762 mV/A
+
+  Littelfuse (spec de manufactura del sensor, REFERENCIA — no se usa para zonas):
+    tolerancia = ±1.7 %  (±3.74 A @ 220 A)
+      S_MIN_LITTELFUSE = 5.603 mV/A
+      S_MAX_LITTELFUSE = 5.797 mV/A
+
+QUÉ SIGNIFICA LA DISCREPANCIA
+  El criterio de Ford (±1.09 %) es MÁS ESTRECHO que la spec de manufactura de
+  Littelfuse (±1.7 %). No implica que Littelfuse esté equivocado: son bases de
+  comparación distintas —
+    · Littelfuse valida la MANUFACTURA del componente (¿el sensor cumple su
+      hoja de datos?).
+    · Ford valida el SISTEMA COMPLETO en operación (¿la lectura de corriente
+      del ISC concuerda con la corriente real de la batería?).
+  Usamos el criterio de FORD como ground truth para el sorteo porque es el que
+  EFECTIVAMENTE rechaza piezas en campo, no porque Littelfuse esté equivocado.
+
+BANDA GRIS DE NEGOCIACIÓN (escalación)
+  Piezas con S entre 5.603 y 5.638 mV/A están DENTRO de la
+  tolerancia de manufactura de Littelfuse pero FUERA del criterio operativo de
+  Ford. Son candidatas a NEGOCIACIÓN con Ford si el volumen es significativo:
+  técnicamente cumplen la spec del proveedor pero disparan el reject 12250.
+
+LIMITACIÓN DE LA FÓRMULA (Ford_Real_Formula)
+  Delta_Crnt se proyecta desde la sensibilidad medida a 20 A:
+    Delta_Crnt = 220 · |S_NOMINAL - S| / S_NOMINAL
+  No disponemos de la corriente real inyectada por Ford pieza por pieza, así que
+  la proyección de sensibilidad es un PROXY (matemáticamente equivalente a lo
+  que el WMA calcula, que también deriva Pack_Current de la tensión vía la
+  sensibilidad nominal). El proxy NO captura deriva térmica ni de medición en
+  campo: por eso hay FAIL reales que caen DENTRO de la banda de paso de Ford
+  (ver "FN" en el reporte de zonas). El criterio de Ford explica la mayoría de
+  los rechazos, pero no todos — el sorteo de la zona AMARILLO + el ranking ML
+  cubren el residual.

@@ -12,6 +12,12 @@ backend/data/
 ml_output/
 zonas_output/
 
+# zonas_output_v2/: keep the human-readable v2 deliverable reports tracked
+# (reporte_zonas.txt, comparativa_v1_v2.txt, discrepancia_ford_littelfuse.txt,
+# ml_rank_v1_v2.txt, escapes_liberados.csv) but ignore the heavy, fully
+# regenerable per-part classification CSV.
+zonas_output_v2/clasificacion_zonas.csv
+
 # uploads/Dataset_CONSOLIDADO.csv is the reference set backend/scripts/validate_reference.py
 # checks against — keep it tracked. Ignore only hash-suffixed re-upload artifacts.
 uploads/*-*.csv

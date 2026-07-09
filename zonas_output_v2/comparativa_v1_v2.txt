@@ -1,0 +1,47 @@
+COMPARATIVA v1 / v2 (banda orig.) / v2 (banda ancha)
+========================================================================
++------------------+------------------+------------------+------------------+
+| Métrica          | v1 (viejo)       | v2 (banda orig.) | v2 (banda ancha) |
++------------------+------------------+------------------+------------------+
+| Umbral ROJO      | 5.55             | 5.6              | 5.6              |
+| Umbral AMARILLO  | 5.65             | 5.65             | 5.65             |
+| Banda ML (S)     | 5.55-5.65        | 5.60-5.65        | 5.638-5.7        |
+| Piezas ROJO      | 110              | 4,399            | 4,399            |
+| Piezas AMARILLO  | 31,949           | 38,181           | 38,181           |
+| Piezas VERDE     | 42,310           | 31,789           | 31,789           |
+| FAIL en ROJO     | 6                | 162              | 162              |
+| FAIL en AMARILLO | 187              | 43               | 43               |
+| Escapes (VERDE)  | 23               | 11               | 11               |
+| Recall jaladas   | 89.4%            | 94.9%            | 94.9%            |
+| Pool ML (n)      | 31,949           | 38,181           | 69,195           |
+| S_High únicos ML | varios           | 1                | 2                |
+| Gain@25% ML      | 84.0%            | 14.0%            | 11.3%            |
+| ROC-AUC ML       | 0.8246           | 0.3847           | 0.5647           |
+| PR-AUC ML        | 0.0314           | 0.0009           | 0.0009           |
++------------------+------------------+------------------+------------------+
+
+Nota: Tolerancia Littelfuse (spec fabricante) = ±1.7% (±3.74A @ 220A) → S_MIN_Littelfuse = 5.603 mV/A,
+S_MAX_Littelfuse = 5.797 mV/A. Ford aplica un criterio operativo más estricto (±1.09%, ±2.40A @ 220A). La banda
+AMARILLO de este sorteo usa el criterio de Ford (más conservador) porque es el que efectivamente causa rechazos
+en campo — no implica que Littelfuse esté incorrecto.
+
+LECTURA DEL RESULTADO
+  · La regla DETERMINÍSTICA de zona MEJORA con v2: los escapes
+    (FAIL liberado en VERDE) bajan de 23 a 11 y el recall de piezas
+    jaladas sube de 89.4% a 94.9%. Las 147 piezas FAIL con S=5.60
+    (banda de rechazo real de Ford, S<5.638) pasan de SORTEO a
+    RETIRAR — ya no dependen de un sorteo.
+  · El ranking ML de la banda ESTRECHA v2 (5.60-5.65) colapsa a un
+    único valor cuantizado S=5.65 (el DMM cuantiza S a pasos de 0.05):
+    S_High y Delta_V_High —los features dominantes— son CONSTANTES en
+    el pool y el modelo se queda sin señal (ROC-AUC ~0.38, peor que azar).
+  · La banda ANCHA (5.638-5.700) abarca 2 valores cuantizados (5.65 y
+    5.70) y RECUPERA señal física: ROC-AUC ~0.38 -> ~0.56 (ya sobre azar)
+    y Gain@50% ~42% -> ~68%. Confirma que el colapso era por cuantización,
+    no por falta de datos. Aun así Gain@25% queda por debajo de v1 porque
+    la señal fuerte (S=5.60, 147 FAIL) ya fue absorbida por ROJO en v2.
+  · Conclusión: v2 es mejor globalmente (la regla determinística jala la
+    señal fuerte); el ML solo triaja el residual duro del sorteo, y la
+    banda ancha es la única con señal utilizable para ese triaje.
+  · v1 sigue siendo el modelo SERVIDO hasta confirmar v2 banda ancha
+    (ya estable en 3 seeds). El dashboard no se toca todavía.
