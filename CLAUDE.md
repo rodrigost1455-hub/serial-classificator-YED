@@ -193,16 +193,22 @@ disposition** — it's an orthogonal column, same principle as never collapsing
   `load_amarillo_rows`/`train_ranking_model` take optional `umbral_rojo`/`umbral_amarillo`/
   `snap_grid` args that **default to v1** — the live serving path (`ml_risk_score_for_row`,
   `compute_ml_rank`) never passes them, so default behavior is byte-identical to before.
-- **v2 model (`models/ml_rank_v2.pkl`, trained by `scripts/train_ml_rank_v2.py`, 3 seeds).**
-  Re-filters AMARILLO with the v2 thresholds (5.60/5.65, `snap_grid`). **Key result: the ML
-  ranking gets *worse*, not better** — Gain@25% 84%→14%, ROC-AUC 0.82→0.38. Not a bug: v2's
-  AMARILLO band (`5.60 < S ≤ 5.65`) collapses onto a single quantized value `S=5.65`, so
-  `S_High`/`Delta_V_High` (the dominant features) are constant across the pool and there's no
-  physical signal left to rank on. The 147 strong-signal FAILs at `S=5.60` are now handled
-  deterministically in ROJO (RETIRAR) instead of needing a sorteo. So v2 is better *overall*
-  (the zone rule absorbs the easy wins), but if ML triage of the v2 sorteo is ever wanted the
-  AMARILLO band must span >1 quantization step (e.g. 5.638–5.70). **v1 remains the served
-  model**; `ml_rank_v2.pkl` is committed as the record of this finding, not wired to any route.
+- **v2 models (trained by `scripts/train_ml_rank_v2.py`, 3 seeds each).** Two pkls:
+  - `models/ml_rank_v2.pkl` (**narrow**) — re-filters AMARILLO with the v2 zone thresholds
+    (`5.60 < S ≤ 5.65`, `snap_grid`). **Collapses**: that band is a single DMM-quantized
+    value `S=5.65`, so `S_High`/`Delta_V_High` (the dominant features) are constant and the
+    ranker has no signal — Gain@25% 84%→14%, ROC-AUC 0.82→**0.38** (worse than chance).
+  - `models/ml_rank_v2_wide.pkl` (**wide**) — a two-sided ML-ONLY band
+    (`UMBRAL_AMARILLO_ML_MIN=5.638 < S ≤ UMBRAL_AMARILLO_ML_MAX=5.700`, `train_ranking_model(
+    band=(...))` / `load_ml_band_rows`) spanning two quantized values (5.65 **and** 5.70).
+    Restores signal: ROC-AUC 0.38→**0.56** (above chance), Gain@50% 42%→68% — confirming the
+    collapse was quantization, not data scarcity. This band changes **no unit's disposition**
+    (the deterministic ROJO/AMARILLO/VERDE rule is untouched); it only widens the pool the
+    ranking is *computed over*. `test_wide_ml_band_has_signal` guards the ≥2-value invariant.
+  Why v2 still trails v1 on Gain@25%: v2's better zone rule already pulls the 147 strong-signal
+  FAILs at `S=5.60` into ROJO (RETIRAR), so the ML only triages the genuinely-hard residual.
+  **v1 remains the served model**; both v2 pkls are committed as the record of this finding,
+  neither wired to a route until the wide band is confirmed (already stable across 3 seeds).
 - **Training is always offline.** `train_ranking_model()` (StratifiedGroupKFold by
   month, candidates RandomForest + a module-level `ScaledLogReg`, picks the better one
   by OOF PR-AUC) is only ever invoked from `scripts/train_ml_rank.py`

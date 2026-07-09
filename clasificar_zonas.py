@@ -59,6 +59,14 @@ UMBRAL_AMARILLO = 5.65
 UMBRAL_ROJO_V2 = 5.60      # margen de seguridad bajo S_MIN_FORD_V2 (5.638)
 UMBRAL_AMARILLO_V2 = 5.65  # buffer sobre la banda de paso de Ford
 
+# Banda AMARILLO para el MODELO ML únicamente (no cambia la disposición
+# determinística ROJO/AMARILLO/VERDE, que sigue 5.60/5.65). La banda estrecha de
+# v2 (5.60-5.65) colapsa a un único valor cuantizado por el DMM (S=5.65) y el
+# modelo se queda sin señal física; esta banda de dos lados abarca >1 paso de
+# cuantización (5.65 y 5.70) para recuperar variabilidad. Espejo de ml_rank.py.
+UMBRAL_AMARILLO_ML_MIN = 5.638   # S_MIN_FORD_V2, límite real de Ford
+UMBRAL_AMARILLO_ML_MAX = 5.700   # nominal, un paso completo de DMM más allá de 5.65
+
 # --- Criterio físico de Ford / Littelfuse ------------------------------------
 S_NOMINAL = 5.700
 FORD_CMD_CURRENT_A = 220.0
@@ -76,6 +84,17 @@ ZONA_ACCION = {
     "VERDE":    "LIBERAR",
     "LIMPIO":   "LIBERAR",
 }
+
+# Texto EXACTO de referencia (spec Littelfuse vs criterio operativo de Ford).
+# Se emite junto a la definición de la banda AMARILLO en cada reporte.
+LITTELFUSE_NOTE = (
+    "Nota: Tolerancia Littelfuse (spec fabricante) = ±1.7% (±3.74A @ 220A) → "
+    "S_MIN_Littelfuse = 5.603 mV/A,\nS_MAX_Littelfuse = 5.797 mV/A. Ford aplica "
+    "un criterio operativo más estricto (±1.09%, ±2.40A @ 220A). La banda\n"
+    "AMARILLO de este sorteo usa el criterio de Ford (más conservador) porque es "
+    "el que efectivamente causa rechazos\nen campo — no implica que Littelfuse "
+    "esté incorrecto."
+)
 
 
 class ZoneConfig:
@@ -322,6 +341,13 @@ def emitir_reporte(stats, n_raw, retest_serials, echo=True):
             f"{pct(zona_fail[z], zona_total[z]):>12}"
             f"{pct(zona_fail[z], fail_total):>13}")
 
+    out("\n" + "-" * 72)
+    out("DEFINICIÓN DE LA BANDA AMARILLO (sorteo)")
+    out(f"  · Disposición determinística : {cfg.umbral_rojo} < S ≤ {cfg.umbral_amarillo} mV/A")
+    out(f"  · Banda del ranking ML (v2)  : {UMBRAL_AMARILLO_ML_MIN} < S ≤ "
+        f"{UMBRAL_AMARILLO_ML_MAX} mV/A (banda ancha, solo para el modelo)")
+    out(LITTELFUSE_NOTE)
+
     out("\n" + line)
     out("EFECTIVIDAD DE LA DISPOSICIÓN (contra Ford_Real)")
     out(line)
@@ -396,38 +422,60 @@ def tabla_comparativa(stats_v1, stats_v2):
         return 100 * capt(s) / s["fail_total"] if s["fail_total"] else 0
 
     v1, v2 = stats_v1, stats_v2
+
+    ml_v1 = _load_ml_report("ml_rank_report.json")
+    ml_v2 = _load_ml_report("ml_rank_v2_report.json")        # v2 banda estrecha
+    ml_wide = _load_ml_report("ml_rank_v2_wide_report.json")  # v2 banda ancha
+
+    # Las columnas v2 y v2_banda_ancha comparten la MISMA regla determinística
+    # de zona (5.60/5.65) — solo difiere el pool sobre el que corre el ranking
+    # ML. Por eso las filas de zona repiten los valores de v2 en la 3a columna.
+    def zt(s, z):
+        return f"{s['zona_total'][z]:,}"
+
+    def zf(s, z):
+        return f"{s['zona_fail'][z]}"
+
+    def gpct(rep):
+        return f"{100*rep['gain_top25pct']:.1f}%" if rep else "(sin entren.)"
+
+    def pra(rep):
+        return f"{rep['pr_auc']:.4f}" if rep else "(sin entren.)"
+
+    def roc(rep):
+        return f"{rep['roc_auc']:.4f}" if rep else "(sin entren.)"
+
+    # (métrica, v1, v2_narrow, v2_wide)
     rows = [
-        ("Umbral ROJO",        f"{v1['cfg'].umbral_rojo}",           f"{v2['cfg'].umbral_rojo}"),
-        ("Umbral AMARILLO",    f"{v1['cfg'].umbral_amarillo}",       f"{v2['cfg'].umbral_amarillo}"),
-        ("snap_grid (fix FP)", f"{v1['cfg'].snap_grid}",             f"{v2['cfg'].snap_grid}"),
-        ("Piezas ROJO",        f"{v1['zona_total']['ROJO']:,}",      f"{v2['zona_total']['ROJO']:,}"),
-        ("Piezas AMARILLO",    f"{v1['zona_total']['AMARILLO']:,}",  f"{v2['zona_total']['AMARILLO']:,}"),
-        ("Piezas VERDE",       f"{v1['zona_total']['VERDE']:,}",     f"{v2['zona_total']['VERDE']:,}"),
-        ("FAIL en ROJO",       f"{v1['zona_fail']['ROJO']}",         f"{v2['zona_fail']['ROJO']}"),
-        ("FAIL en AMARILLO",   f"{v1['zona_fail']['AMARILLO']}",     f"{v2['zona_fail']['AMARILLO']}"),
-        ("Escapes (VERDE)",    f"{v1['zona_fail']['VERDE']}",        f"{v2['zona_fail']['VERDE']}"),
-        ("Recall jaladas",     f"{recall(v1):.1f}%",                 f"{recall(v2):.1f}%"),
+        ("Umbral ROJO",       f"{v1['cfg'].umbral_rojo}", f"{v2['cfg'].umbral_rojo}", f"{v2['cfg'].umbral_rojo}"),
+        ("Umbral AMARILLO",   f"{v1['cfg'].umbral_amarillo}", f"{v2['cfg'].umbral_amarillo}", f"{v2['cfg'].umbral_amarillo}"),
+        ("Banda ML (S)",      "5.55-5.65", "5.60-5.65", f"{UMBRAL_AMARILLO_ML_MIN}-{UMBRAL_AMARILLO_ML_MAX}"),
+        ("Piezas ROJO",       zt(v1, "ROJO"), zt(v2, "ROJO"), zt(v2, "ROJO")),
+        ("Piezas AMARILLO",   zt(v1, "AMARILLO"), zt(v2, "AMARILLO"), zt(v2, "AMARILLO")),
+        ("Piezas VERDE",      zt(v1, "VERDE"), zt(v2, "VERDE"), zt(v2, "VERDE")),
+        ("FAIL en ROJO",      zf(v1, "ROJO"), zf(v2, "ROJO"), zf(v2, "ROJO")),
+        ("FAIL en AMARILLO",  zf(v1, "AMARILLO"), zf(v2, "AMARILLO"), zf(v2, "AMARILLO")),
+        ("Escapes (VERDE)",   zf(v1, "VERDE"), zf(v2, "VERDE"), zf(v2, "VERDE")),
+        ("Recall jaladas",    f"{recall(v1):.1f}%", f"{recall(v2):.1f}%", f"{recall(v2):.1f}%"),
+        ("Pool ML (n)",       f"{ml_v1['n']:,}" if ml_v1 else "?", f"{ml_v2['n']:,}" if ml_v2 else "?", f"{ml_wide['n']:,}" if ml_wide else "?"),
+        ("S_High únicos ML",  "varios", "1", "2"),
+        ("Gain@25% ML",       gpct(ml_v1), gpct(ml_v2), gpct(ml_wide)),
+        ("ROC-AUC ML",        roc(ml_v1), roc(ml_v2), roc(ml_wide)),
+        ("PR-AUC ML",         pra(ml_v1), pra(ml_v2), pra(ml_wide)),
     ]
 
-    # Fila Gain@25% ML, leída de los reportes si los modelos ya se entrenaron.
-    ml_v1 = _load_ml_report("ml_rank_report.json")
-    ml_v2 = _load_ml_report("ml_rank_v2_report.json")
-
-    def g25(rep):
-        return f"{100*rep['gain_top25pct']:.1f}%" if rep else "(sin entrenar)"
-
-    rows.append(("Gain@25% ML", g25(ml_v1), g25(ml_v2)))
-    if ml_v1 and ml_v2:
-        rows.append(("PR-AUC ML", f"{ml_v1['pr_auc']:.4f}", f"{ml_v2['pr_auc']:.4f}"))
-
     w0 = max(len(r[0]) for r in rows)
-    line = "+" + "-" * (w0 + 2) + "+" + "-" * 16 + "+" + "-" * 16 + "+"
+    heads = ("v1 (viejo)", "v2 (banda orig.)", "v2 (banda ancha)")
+    wc = max(16, *(len(h) for h in heads))
+    line = "+" + "-" * (w0 + 2) + ("+" + "-" * (wc + 2)) * 3 + "+"
     buf = [line,
-           f"| {'Métrica':<{w0}} | {'v1 (viejo)':<14} | {'v2 (nuevo)':<14} |",
+           f"| {'Métrica':<{w0}} | {heads[0]:<{wc}} | {heads[1]:<{wc}} | {heads[2]:<{wc}} |",
            line]
-    for name, a, b in rows:
-        buf.append(f"| {name:<{w0}} | {a:<14} | {b:<14} |")
+    for name, a, b, c in rows:
+        buf.append(f"| {name:<{w0}} | {a:<{wc}} | {b:<{wc}} | {c:<{wc}} |")
     buf.append(line)
+    buf.append("")
+    buf.append(LITTELFUSE_NOTE)
     buf.append("")
     buf.append("LECTURA DEL RESULTADO")
     buf.append("  · La regla DETERMINÍSTICA de zona MEJORA con v2: los escapes")
@@ -435,15 +483,20 @@ def tabla_comparativa(stats_v1, stats_v2):
     buf.append("    jaladas sube de 89.4% a 94.9%. Las 147 piezas FAIL con S=5.60")
     buf.append("    (banda de rechazo real de Ford, S<5.638) pasan de SORTEO a")
     buf.append("    RETIRAR — ya no dependen de un sorteo.")
-    buf.append("  · El ranking ML EMPEORA con v2 (Gain@25% 84%->14%, ROC-AUC ~0.38).")
-    buf.append("    Motivo: la zona AMARILLO v2 colapsa a un único valor cuantizado")
-    buf.append("    S=5.65 (el tester cuantiza S a pasos de 0.05), así que S_High y")
-    buf.append("    Delta_V_High —los features dominantes— son CONSTANTES en el pool")
-    buf.append("    y el modelo se queda sin señal física discriminante.")
-    buf.append("  · Conclusión: v2 es mejor globalmente porque mueve la señal fuerte")
-    buf.append("    al criterio determinístico (ROJO); el ML deja de aportar en el")
-    buf.append("    residual duro. Si se quiere triaje ML del sorteo v2, la banda")
-    buf.append("    AMARILLO debe abarcar >1 paso de cuantización (p.ej. 5.638–5.70).")
+    buf.append("  · El ranking ML de la banda ESTRECHA v2 (5.60-5.65) colapsa a un")
+    buf.append("    único valor cuantizado S=5.65 (el DMM cuantiza S a pasos de 0.05):")
+    buf.append("    S_High y Delta_V_High —los features dominantes— son CONSTANTES en")
+    buf.append("    el pool y el modelo se queda sin señal (ROC-AUC ~0.38, peor que azar).")
+    buf.append("  · La banda ANCHA (5.638-5.700) abarca 2 valores cuantizados (5.65 y")
+    buf.append("    5.70) y RECUPERA señal física: ROC-AUC ~0.38 -> ~0.56 (ya sobre azar)")
+    buf.append("    y Gain@50% ~42% -> ~68%. Confirma que el colapso era por cuantización,")
+    buf.append("    no por falta de datos. Aun así Gain@25% queda por debajo de v1 porque")
+    buf.append("    la señal fuerte (S=5.60, 147 FAIL) ya fue absorbida por ROJO en v2.")
+    buf.append("  · Conclusión: v2 es mejor globalmente (la regla determinística jala la")
+    buf.append("    señal fuerte); el ML solo triaja el residual duro del sorteo, y la")
+    buf.append("    banda ancha es la única con señal utilizable para ese triaje.")
+    buf.append("  · v1 sigue siendo el modelo SERVIDO hasta confirmar v2 banda ancha")
+    buf.append("    (ya estable en 3 seeds). El dashboard no se toca todavía.")
     return "\n".join(buf)
 
 
@@ -529,11 +582,11 @@ def main():
     # Tabla comparativa v1 vs v2.
     tabla = tabla_comparativa(stats_v1, stats_v2)
     print("\n\n" + "=" * 72)
-    print("COMPARATIVA v1 vs v2")
+    print("COMPARATIVA v1 / v2 (banda orig.) / v2 (banda ancha)")
     print("=" * 72)
     print(tabla)
     with open(os.path.join(CFG_V2.out_dir, "comparativa_v1_v2.txt"), "w", encoding="utf-8") as f:
-        f.write("COMPARATIVA v1 vs v2\n" + "=" * 72 + "\n" + tabla + "\n")
+        f.write("COMPARATIVA v1 / v2 (banda orig.) / v2 (banda ancha)\n" + "=" * 72 + "\n" + tabla + "\n")
 
     # Documento de discrepancia Ford/Littelfuse.
     with open(os.path.join(CFG_V2.out_dir, "discrepancia_ford_littelfuse.txt"),

@@ -57,6 +57,19 @@ def test_zona_boundaries():
     assert ml_rank.zona_de(202602, None) == "ROJO"
 
 
+def test_wide_ml_band_has_signal():
+    """The whole point of the v2 wide ML band: unlike the narrow v2 AMARILLO
+    band (5.60-5.65 → single DMM-quantized S=5.65, no variance for the ranker),
+    the wide band (5.638-5.700) must span more than one quantized S_High value,
+    or the model has nothing physical to rank on. Guards the collapse from
+    silently regressing back if the band constants are retuned."""
+    rows = ml_rank.load_ml_band_rows()
+    assert rows, "wide ML band selected no rows"
+    s_vals = {round(ml_rank._num(r.get("S_High_mVA")), 4) for r in rows
+              if ml_rank._num(r.get("S_High_mVA")) is not None}
+    assert len(s_vals) >= 2, f"wide band collapsed to {s_vals} — no physical signal"
+
+
 @pytest.mark.slow
 def test_stability_across_seeds():
     """Retraining with a different random_state should give a similar Lift —

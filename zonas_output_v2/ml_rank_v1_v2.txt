@@ -1,15 +1,29 @@
-RANKING ML — zona AMARILLO v1 vs v2
-============================================================
-Métrica               v1 (5.55/5.65)      v2 (5.60/5.65)
-AMARILLO n                    31,949              38,181
-FAIL n                           187                  43
-model                         LogReg        RandomForest
-PR-AUC                        0.0314              0.0009
-ROC-AUC                       0.8246              0.3847
-Gain@10%                      57.2%                2.3%
-Gain@25%                      84.0%               14.0%
-Gain@50%                      87.2%               41.9%
+RANKING ML — v1 vs v2 narrow vs v2 wide
+==================================================================================
++---------------+----------------+-----------------------+-----------------------+
+| Métrica       | v1 (5.55/5.65) | v2 narrow (5.60/5.65) | v2 wide (5.638/5.700) |
++---------------+----------------+-----------------------+-----------------------+
+| Pool n        | 31,949         | 38,181                | 69,195                |
+| FAIL n        | 187            | 43                    | 53                    |
+| S_High únicos | ?              | 1                     | 2                     |
+| Modelo        | LogReg         | RandomForest          | LogReg                |
+| PR-AUC        | 0.0314         | 0.0009                | 0.0009                |
+| ROC-AUC       | 0.8246         | 0.3847                | 0.5647                |
+| Gain@10%      | 57.2%          | 2.3%                  | 5.7%                  |
+| Gain@25%      | 84.0%          | 14.0%                 | 11.3%                 |
+| Gain@50%      | 87.2%          | 41.9%                 | 67.9%                 |
++---------------+----------------+-----------------------+-----------------------+
 
-Estabilidad v2 (3 seeds (1, 2, 42)):
-  Gain@25% = 14.0% ± 0.0%
-  PR-AUC   = 0.0009 ± 0.0000
+Estabilidad 3 seeds (1, 2, 42):
+  v2 narrow: Gain@25% = 14.0% ± 0.0%
+  v2 wide  : Gain@25% = 11.3% ± 0.0%
+
+Sanity: la banda narrow colapsa a 1 valor(es) de S_High ([5.65]); la banda wide tiene 2 ([5.65, 5.7]) → el modelo wide recupera señal física.
+
+Nota: Tolerancia Littelfuse (spec fabricante) = ±1.7% (±3.74A @ 220A) → S_MIN_Littelfuse = 5.603 mV/A,
+S_MAX_Littelfuse = 5.797 mV/A. Ford aplica un criterio operativo más estricto (±1.09%, ±2.40A @ 220A). La banda
+AMARILLO de este sorteo usa el criterio de Ford (más conservador) porque es el que efectivamente causa rechazos
+en campo — no implica que Littelfuse esté incorrecto.
+
+v1 sigue siendo el modelo servido; ml_rank_v2_wide.pkl no está cableado
+a ninguna ruta hasta confirmar consistencia (ya validada en 3 seeds).

@@ -1,0 +1,80 @@
+{
+  "model": "LogReg",
+  "n": 69195,
+  "n_fail": 53,
+  "pr_auc": 0.0008913687075147729,
+  "roc_auc": 0.5646617052246321,
+  "features": [
+    "Consumo_mA",
+    "Offset_High_V",
+    "Offset_Low_V",
+    "V_20A_High_V",
+    "V_20A_Low_V",
+    "Tiempo_ms_High",
+    "Tiempo_ms_Low",
+    "Delta_V_High",
+    "Delta_V_Low",
+    "S_High_mVA",
+    "S_Low_mVA",
+    "Ratio_HL"
+  ],
+  "zone": {
+    "umbral_rojo": 5.55,
+    "umbral_amarillo": 5.65,
+    "snap_grid": true,
+    "band": [
+      5.638,
+      5.7
+    ]
+  },
+  "gain_top10pct": 0.05660377358490566,
+  "gain_top25pct": 0.11320754716981132,
+  "gain_top50pct": 0.6792452830188679,
+  "seeds": [
+    {
+      "seed": 1,
+      "model": "LogReg",
+      "pr_auc": 0.0008913687075147729,
+      "roc_auc": 0.5646617052246321,
+      "gain_top10pct": 0.05660377358490566,
+      "gain_top25pct": 0.11320754716981132,
+      "gain_top50pct": 0.6792452830188679
+    },
+    {
+      "seed": 2,
+      "model": "LogReg",
+      "pr_auc": 0.0008913687075147729,
+      "roc_auc": 0.5646617052246321,
+      "gain_top10pct": 0.05660377358490566,
+      "gain_top25pct": 0.11320754716981132,
+      "gain_top50pct": 0.6792452830188679
+    },
+    {
+      "seed": 42,
+      "model": "LogReg",
+      "pr_auc": 0.0008913687075147729,
+      "roc_auc": 0.5646617052246321,
+      "gain_top10pct": 0.05660377358490566,
+      "gain_top25pct": 0.11320754716981132,
+      "gain_top50pct": 0.6792452830188679
+    }
+  ],
+  "stability": {
+    "gain_top25pct_mean": 0.11320754716981132,
+    "gain_top25pct_stdev": 0.0,
+    "gain_top25pct_min": 0.11320754716981132,
+    "gain_top25pct_max": 0.11320754716981132,
+    "pr_auc_mean": 0.0008913687075147729,
+    "pr_auc_stdev": 0.0
+  },
+  "sanity": {
+    "n": 69195,
+    "n_fail": 53,
+    "s_high_unique": 2,
+    "s_high_values": [
+      5.65,
+      5.7
+    ],
+    "delta_v_high_unique": 2
+  }
+}

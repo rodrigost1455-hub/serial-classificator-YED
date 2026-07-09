@@ -17,6 +17,15 @@ AMARILLO  SORTEO        38,181     43        0.1%        19.9%
 VERDE     LIBERAR       31,789     11        0.0%         5.1%
 LIMPIO    LIBERAR       38,610      0        0.0%         0.0%
 
+------------------------------------------------------------------------
+DEFINICIÓN DE LA BANDA AMARILLO (sorteo)
+  · Disposición determinística : 5.6 < S ≤ 5.65 mV/A
+  · Banda del ranking ML (v2)  : 5.638 < S ≤ 5.7 mV/A (banda ancha, solo para el modelo)
+Nota: Tolerancia Littelfuse (spec fabricante) = ±1.7% (±3.74A @ 220A) → S_MIN_Littelfuse = 5.603 mV/A,
+S_MAX_Littelfuse = 5.797 mV/A. Ford aplica un criterio operativo más estricto (±1.09%, ±2.40A @ 220A). La banda
+AMARILLO de este sorteo usa el criterio de Ford (más conservador) porque es el que efectivamente causa rechazos
+en campo — no implica que Littelfuse esté incorrecto.
+
 ========================================================================
 EFECTIVIDAD DE LA DISPOSICIÓN (contra Ford_Real)
 ========================================================================
