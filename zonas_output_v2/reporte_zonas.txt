@@ -1,0 +1,63 @@
+========================================================================
+CLASIFICACIÓN POR ZONAS [v2] — Corte Littelfuse = Marzo 2026 (202603)
+Umbrales: ROJO <= 5.6   AMARILLO <= 5.65   (snap_grid=True)
+========================================================================
+Registros en el CSV      : 113,036
+Retests consolidados     : 57 filas de 57 seriales
+Piezas físicas (únicas)  : 112,979
+FAIL reales (piezas)     : 216  (Ford Sudáfrica)
+En RIESGO (< mar26): 74,369  con 216 FAIL
+LIMPIO  (>= mar26) : 38,610  con 0 FAIL
+
+========================================================================
+ZONA      ACCIÓN        PIEZAS   FAIL  %FAIL_zona  %FAILs_capt
+------------------------------------------------------------------------
+ROJO      RETIRAR        4,399    162        3.7%        75.0%
+AMARILLO  SORTEO        38,181     43        0.1%        19.9%
+VERDE     LIBERAR       31,789     11        0.0%         5.1%
+LIMPIO    LIBERAR       38,610      0        0.0%         0.0%
+
+========================================================================
+EFECTIVIDAD DE LA DISPOSICIÓN (contra Ford_Real)
+========================================================================
+Piezas jaladas (RETIRAR+SORTEO) : 42,580
+  · FAIL reales dentro          : 205  (recall global  94.9%)
+  · precisión (FAIL/jaladas)    :   0.5%
+
+ESCAPES (FAIL real LIBERADO)     : 11
+  · en VERDE (riesgo, liberado) : 11  <- fugas de la regla de zona
+  · en LIMPIO (post-corte)      : 0  <- fallas en producción 'limpia'
+
+Recall de la regla de ZONA (solo producción en riesgo):
+  205/216 =  94.9% de las fallas en riesgo son jaladas
+
+========================================================================
+FÓRMULA DE FORD (Ford_Real_Formula: Delta_Crnt proyectado > 2.40 A)
+========================================================================
+Banda de paso de Ford: S ∈ [5.638, 5.762] mV/A
+  TP=162  FP=4817  FN=54  TN=107946
+  recall vs Ford_Real   :  75.0%  (162/216 FAIL reales predichos)
+  precisión             :   3.3%
+  FN = FAIL reales DENTRO de la banda de paso de Ford: 54
+       (fallan en campo pero pasan el criterio ±2.40 A — ver discrepancia)
+
+========================================================================
+DETALLE DE LOS 11 ESCAPES (ordenados por S_High):
+------------------------------------------------------------------------
+Serial        Fecha       Zona       S_High  Proy220
+25322000040   11/18/2025  VERDE       5.700     3748
+25349000781   12/15/2025  VERDE       5.700     3758
+25175000423   6/24/2025   VERDE       5.700     3760
+25178000295   6/27/2025   VERDE       5.700     3760
+25202000350   7/21/2025   VERDE       5.700     3760
+25188000069   7/7/2025    VERDE       5.700     3759
+25314000033   11/10/2025  VERDE       5.700     3759
+25322000099   11/18/2025  VERDE       5.700     3759
+25351000133   12/17/2025  VERDE       5.700     3756
+26005000094   1/5/2026    VERDE       5.700     3755
+25349000344   12/15/2025  VERDE       5.750     3767
+
+========================================================================
+Salidas escritas en: /home/user/serial-classificator-YED/zonas_output_v2
+  · clasificacion_zonas.csv   (112,979 filas)
+  · escapes_liberados.csv     (11 filas)

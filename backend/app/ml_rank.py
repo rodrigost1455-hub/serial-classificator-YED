@@ -41,6 +41,15 @@ CORTE_MESKEY = 202603
 UMBRAL_ROJO = 5.55
 UMBRAL_AMARILLO = 5.65
 
+# v2 thresholds — calibrated against Ford's real WMA criterion (Delta_Crnt
+# > ±2.40 A @ 220 A → S_MIN_FORD = 5.638 mV/A). Mirrors clasificar_zonas.py's
+# UMBRAL_ROJO_V2/UMBRAL_AMARILLO_V2. snap_grid rounds S_High to 4 decimals
+# before comparing, because S = ΔV/0.020 carries sub-ULP float noise that would
+# otherwise make a threshold sitting exactly on the 0.05 grid (5.60) nondeter-
+# ministic — see clasificar_zonas.ZoneConfig. v2 always trains/serves with it on.
+UMBRAL_ROJO_V2 = 5.60
+UMBRAL_AMARILLO_V2 = 5.65
+
 # Physical/electrical features only. Never add Fecha/Anio/Mes/Dia or anything
 # derived from them here — see module docstring.
 FEATURES: List[str] = [
@@ -110,32 +119,49 @@ def _dedupe_by_serial(rows: List[dict]) -> List[dict]:
     return list(canon.values())
 
 
-def zona_de(meskey: int, s_high: Optional[float]) -> str:
-    """ROJO/AMARILLO/VERDE/LIMPIO — identical logic to clasificar_zonas.py."""
+def zona_de(meskey: int, s_high: Optional[float],
+            umbral_rojo: float = UMBRAL_ROJO,
+            umbral_amarillo: float = UMBRAL_AMARILLO,
+            snap_grid: bool = False) -> str:
+    """ROJO/AMARILLO/VERDE/LIMPIO — identical logic to clasificar_zonas.py.
+
+    Defaults reproduce v1 (the live serving model) exactly. Pass the v2
+    thresholds + snap_grid=True to filter the v2 zona AMARILLO pool."""
     if meskey >= CORTE_MESKEY:
         return "LIMPIO"
     if s_high is None:
         return "ROJO"
-    if s_high <= UMBRAL_ROJO:
+    s = round(s_high, 4) if snap_grid else s_high
+    if s <= umbral_rojo:
         return "ROJO"
-    if s_high <= UMBRAL_AMARILLO:
+    if s <= umbral_amarillo:
         return "AMARILLO"
     return "VERDE"
 
 
-def _row_zona(row: dict) -> str:
+def _row_zona(row: dict, umbral_rojo: float = UMBRAL_ROJO,
+              umbral_amarillo: float = UMBRAL_AMARILLO,
+              snap_grid: bool = False) -> str:
     meskey = int(row["Anio"]) * 100 + int(row["Mes"])
-    return zona_de(meskey, _num(row.get("S_High_mVA")))
+    return zona_de(meskey, _num(row.get("S_High_mVA")),
+                   umbral_rojo, umbral_amarillo, snap_grid)
 
 
-def load_amarillo_rows(csv_path: Optional[str] = None) -> List[dict]:
+def load_amarillo_rows(csv_path: Optional[str] = None,
+                       umbral_rojo: float = UMBRAL_ROJO,
+                       umbral_amarillo: float = UMBRAL_AMARILLO,
+                       snap_grid: bool = False) -> List[dict]:
     """Deduped (one-per-serial) rows from CONSOLIDADO_CON_FORD.csv, filtered to
-    zona AMARILLO — the only rows the ranking model ever trains or scores on."""
+    zona AMARILLO — the only rows the ranking model ever trains or scores on.
+
+    Defaults = v1. Pass v2 thresholds (5.60/5.65, snap_grid=True) for the
+    Ford-calibrated pool."""
     path = csv_path or config.CONSOLIDADO_FORD_PATH
     with open(path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     rows = _dedupe_by_serial(rows)
-    return [r for r in rows if _row_zona(r) == "AMARILLO"]
+    return [r for r in rows
+            if _row_zona(r, umbral_rojo, umbral_amarillo, snap_grid) == "AMARILLO"]
 
 
 def _feature_vector(row: dict) -> List[float]:
@@ -144,7 +170,10 @@ def _feature_vector(row: dict) -> List[float]:
 
 # ---------------------------------------------------------------- training
 def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
-                        n_estimators: int = 500):
+                        n_estimators: int = 500,
+                        umbral_rojo: float = UMBRAL_ROJO,
+                        umbral_amarillo: float = UMBRAL_AMARILLO,
+                        snap_grid: bool = False):
     """Train + out-of-fold-validate a ranking model on zona AMARILLO only.
 
     Candidates are RandomForest and a scaled LogisticRegression (both
@@ -168,7 +197,7 @@ def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
     from sklearn.metrics import average_precision_score, roc_auc_score
     from sklearn.model_selection import StratifiedGroupKFold
 
-    rows = load_amarillo_rows(csv_path)
+    rows = load_amarillo_rows(csv_path, umbral_rojo, umbral_amarillo, snap_grid)
     if not rows:
         raise ValueError("No zona AMARILLO rows found to train on")
     df = pd.DataFrame(rows)
@@ -216,6 +245,8 @@ def train_ranking_model(csv_path: Optional[str] = None, random_state: int = 42,
         "pr_auc": float(best_ap),
         "roc_auc": float(roc_auc_score(y, best_oof)),
         "features": list(FEATURES),
+        "zone": {"umbral_rojo": umbral_rojo, "umbral_amarillo": umbral_amarillo,
+                 "snap_grid": snap_grid},
         **_lift_report(y, best_oof),
     }
 

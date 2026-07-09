@@ -1,0 +1,34 @@
+COMPARATIVA v1 vs v2
+========================================================================
++--------------------+----------------+----------------+
+| Métrica            | v1 (viejo)     | v2 (nuevo)     |
++--------------------+----------------+----------------+
+| Umbral ROJO        | 5.55           | 5.6            |
+| Umbral AMARILLO    | 5.65           | 5.65           |
+| snap_grid (fix FP) | False          | True           |
+| Piezas ROJO        | 110            | 4,399          |
+| Piezas AMARILLO    | 31,949         | 38,181         |
+| Piezas VERDE       | 42,310         | 31,789         |
+| FAIL en ROJO       | 6              | 162            |
+| FAIL en AMARILLO   | 187            | 43             |
+| Escapes (VERDE)    | 23             | 11             |
+| Recall jaladas     | 89.4%          | 94.9%          |
+| Gain@25% ML        | 84.0%          | 14.0%          |
+| PR-AUC ML          | 0.0314         | 0.0009         |
++--------------------+----------------+----------------+
+
+LECTURA DEL RESULTADO
+  · La regla DETERMINÍSTICA de zona MEJORA con v2: los escapes
+    (FAIL liberado en VERDE) bajan de 23 a 11 y el recall de piezas
+    jaladas sube de 89.4% a 94.9%. Las 147 piezas FAIL con S=5.60
+    (banda de rechazo real de Ford, S<5.638) pasan de SORTEO a
+    RETIRAR — ya no dependen de un sorteo.
+  · El ranking ML EMPEORA con v2 (Gain@25% 84%->14%, ROC-AUC ~0.38).
+    Motivo: la zona AMARILLO v2 colapsa a un único valor cuantizado
+    S=5.65 (el tester cuantiza S a pasos de 0.05), así que S_High y
+    Delta_V_High —los features dominantes— son CONSTANTES en el pool
+    y el modelo se queda sin señal física discriminante.
+  · Conclusión: v2 es mejor globalmente porque mueve la señal fuerte
+    al criterio determinístico (ROJO); el ML deja de aportar en el
+    residual duro. Si se quiere triaje ML del sorteo v2, la banda
+    AMARILLO debe abarcar >1 paso de cuantización (p.ej. 5.638–5.70).

@@ -1,0 +1,15 @@
+RANKING ML — zona AMARILLO v1 vs v2
+============================================================
+Métrica               v1 (5.55/5.65)      v2 (5.60/5.65)
+AMARILLO n                    31,949              38,181
+FAIL n                           187                  43
+model                         LogReg        RandomForest
+PR-AUC                        0.0314              0.0009
+ROC-AUC                       0.8246              0.3847
+Gain@10%                      57.2%                2.3%
+Gain@25%                      84.0%               14.0%
+Gain@50%                      87.2%               41.9%
+
+Estabilidad v2 (3 seeds (1, 2, 42)):
+  Gain@25% = 14.0% ± 0.0%
+  PR-AUC   = 0.0009 ± 0.0000
