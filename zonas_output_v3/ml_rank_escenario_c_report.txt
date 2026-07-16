@@ -1,0 +1,25 @@
+========================================================================
+MODELO ML — ESCENARIO C (Marcel ±1.19%) vs ESCENARIO A (Ford ±1.09%)
+========================================================================
+Banda ML escenario C : 5.632 < S <= 5.7  (ranking, no disposición)
+Valores S únicos     : 2 [5.65, 5.7]  (n=69,195, FAIL=53)
+Banda ML escenario A : 5.638 < S <= 5.700  (= v2 wide)
+
+Métrica             A (5.638-5.70)    C (5.632-5.70)
+Pool n                      69,195            69,195
+FAIL n                          53                53
+Modelo                      LogReg            LogReg
+PR-AUC                      0.0009            0.0009
+ROC-AUC                     0.5647            0.5647
+Gain@10%                     5.7%              5.7%
+Gain@25%                    11.3%             11.3%
+Gain@50%                    67.9%             67.9%
+
+Estabilidad C (3 seeds (1, 2, 42)):
+  Gain@25% = 11.3% ± 0.0%
+  PR-AUC   = 0.0009 ± 0.0000
+
+LECTURA: las bandas ML de A (5.638-5.70) y C (5.632-5.70) contienen
+EXACTAMENTE los mismos valores cuantizados (5.65 y 5.70), por lo que el
+pool, el entrenamiento y las métricas son idénticos. Mover el límite de
+Ford a la propuesta de Marcel no cambia el trabajo del ranking ML.

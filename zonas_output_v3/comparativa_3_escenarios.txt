@@ -1,0 +1,103 @@
+==============================================================================
+ANÁLISIS v3 — 3 ESCENARIOS DE TOLERANCIA (negociación Ford / Littelfuse)
+==============================================================================
+Dataset: 113,036 registros -> 112,979 piezas físicas (dedup 1/serial, prod.)
+Ford_Real=FAIL confirmados: 216  (todos en periodo de riesgo < mar-2026)
+Corte Littelfuse: marzo 2026 (MesKey 202603) — piezas >= son LIMPIO
+Defecto Mode A (reduce sensibilidad) -> límite de contención = INFERIOR (S_MIN)
+
+------------------------------------------------------------------------------
+ESCENARIO A — Ford actual (±1.09%)   S_MIN=5.638  S_MAX=5.762
+------------------------------------------------------------------------------
+  ROJO  (retener, S<=S_MIN)     :    4,399   FAIL dentro: 162
+  AMARILLO (sorteo, S_MIN<S<=5.65):   38,181   FAIL dentro:  43
+  VERDE (liberar, S>5.65)        :   31,789   FAIL dentro:  11
+  LIMPIO (>= mar-2026)           :   38,610   FAIL dentro:   0
+  Recall contención ROJO         : 162/216 = 75.0%
+  Precisión ROJO                 : 3.68%   Escapes (FAIL fuera ROJO): 54
+  Recall ROJO+SORTEO (jaladas)   : 205/216 = 94.9%
+
+------------------------------------------------------------------------------
+ESCENARIO B — Littelfuse Global (±1.7%)   S_MIN=5.603  S_MAX=5.797
+------------------------------------------------------------------------------
+  ROJO  (retener, S<=S_MIN)     :    4,399   FAIL dentro: 162
+  AMARILLO (sorteo, S_MIN<S<=5.65):   38,181   FAIL dentro:  43
+  VERDE (liberar, S>5.65)        :   31,789   FAIL dentro:  11
+  LIMPIO (>= mar-2026)           :   38,610   FAIL dentro:   0
+  Recall contención ROJO         : 162/216 = 75.0%
+  Precisión ROJO                 : 3.68%   Escapes (FAIL fuera ROJO): 54
+  Recall ROJO+SORTEO (jaladas)   : 205/216 = 94.9%
+
+------------------------------------------------------------------------------
+ESCENARIO C — Marcel sens. pura (±1.19%)   S_MIN=5.632  S_MAX=5.768
+------------------------------------------------------------------------------
+  ROJO  (retener, S<=S_MIN)     :    4,399   FAIL dentro: 162
+  AMARILLO (sorteo, S_MIN<S<=5.65):   38,181   FAIL dentro:  43
+  VERDE (liberar, S>5.65)        :   31,789   FAIL dentro:  11
+  LIMPIO (>= mar-2026)           :   38,610   FAIL dentro:   0
+  Recall contención ROJO         : 162/216 = 75.0%
+  Precisión ROJO                 : 3.68%   Escapes (FAIL fuera ROJO): 54
+  Recall ROJO+SORTEO (jaladas)   : 205/216 = 94.9%
+
+==============================================================================
+TABLA COMPARATIVA — A (Ford) / B (LF 1.7%) / C (Marcel 1.19%)
+==============================================================================
++----------------------+--------------+--------------+--------------+
+| Métrica              | A (Ford)     | B (LF 1.7%)  | C (Marcel)   |
++----------------------+--------------+--------------+--------------+
+| S_MIN (mV/A)         | 5.638        | 5.603        | 5.632        |
+| Piezas ROJO          | 4,399        | 4,399        | 4,399        |
+| FAIL en ROJO         | 162          | 162          | 162          |
+| Escapes (fuera ROJO) | 54           | 54           | 54           |
+| Recall               | 75.0%        | 75.0%        | 75.0%        |
+| Delta piezas vs A    | —            | +0           | +0           |
++----------------------+--------------+--------------+--------------+
+
+==============================================================================
+HALLAZGO CENTRAL — la cuantización del DMM neutraliza la diferencia A/B/C
+==============================================================================
+El tester cuantiza S_High a pasos de 0.05 mV/A. Los tres S_MIN (5.603,
+5.632, 5.638) caen TODOS entre los valores de rejilla 5.60 y 5.65, así que
+la condición 'S <= S_MIN' es idéntica para los tres = 'S <= 5.60'.
+=> Piezas en las bandas diferenciales (5.603-5.638 y 5.632-5.638): 0.
+=> Piezas ROJO, FAIL capturados y recall son IDÉNTICOS en A, B y C.
+
+IMPACTO EN ZONA AMARILLO (item 3):
+  · AMARILLO bajo escenario A (S_MIN<S<=5.65) : 38,181 piezas (dedup)
+  · Re-clasificadas a ROJO al pasar A -> C     : 0 piezas
+    (ninguna pieza AMARILLO tiene S entre 5.632 y 5.638; el único valor
+     cuantizado del sorteo es S=5.65, muy por encima de ambos S_MIN)
+
+NOTA de reconciliación con el dashboard:
+  El dashboard muestra ~226 ROJO / ~42,373 AMARILLO: son conteos SIN dedup
+  (113,036 registros crudos) y con umbrales v1 (5.55/5.65). Este análisis
+  usa piezas físicas deduplicadas y los S_MIN de cada escenario, por eso
+  los totales difieren; la CONCLUSIÓN (delta A/B/C = 0) es la misma en ambos.
+
+
+==============================================================================
+CONCLUSIÓN PARA LA REUNIÓN FORD / LITTELFUSE
+==============================================================================
+
+Si Ford adopta el límite propuesto por Marcel (±1.19%, sensibilidad pura),
+el cambio en volumen de piezas retenidas directamente (ROJO) es de 0 piezas
+(delta vs el límite actual de Ford ±1.09%), y el recall se mantiene en
+75.0%. Lo mismo ocurre si Ford se moviera hasta el límite completo de
+Littelfuse (±1.7%): también 0 piezas de diferencia.
+
+MOTIVO TÉCNICO: la resolución de sensibilidad del tester EOL es 0.05 mV/A.
+Los tres límites inferiores propuestos (5.603 / 5.632 / 5.638 mV/A) caen en
+el mismo hueco de la rejilla, entre los valores medibles 5.60 y 5.65. Ninguna
+pieza tiene una sensibilidad que los distinga. La discusión 1.09% vs 1.19% vs
+1.7% es, con los datos actuales, SIN IMPACTO en el volumen de contención.
+
+IMPLICACIONES PARA LA NEGOCIACIÓN:
+  · La lista de contención directa (ROJO) es 4,399 piezas en los tres
+    escenarios; ninguna requiere ranking ML (van directo a retención).
+  · El punto negociable NO es el % de tolerancia (indistinguible aquí), sino
+    los 54 FAIL reales que escapan a ROJO con S en {5.65, 5.70, 5.75}: caen
+    dentro de la banda de paso de los TRES criterios y solo se recuperan vía
+    el sorteo AMARILLO + ranking ML (recall sube 75.0% -> 94.9% al jalar el
+    sorteo). Ese residual es el verdadero tema, no el límite de tolerancia.
+  · Si se quisiera separar 1.09% de 1.19%/1.7% habría que aumentar la
+    resolución de medición de S en el EOL (reportar más decimales).
